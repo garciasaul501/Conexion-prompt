@@ -1,0 +1,6 @@
+{
+  "name": "Conexión Prompts",
+  "description": "Plataforma SaaS para explorar, optimizar, gestionar y ejecutar prompts avanzados de IA con arquitectura Google Gemini 3.8 Flash, auto-recuperación ante alta demanda, creador de prompts y suscripciones Conexión Whop.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
