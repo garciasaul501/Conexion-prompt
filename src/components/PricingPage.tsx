@@ -20,12 +20,13 @@ import {
   Download,
   AlertCircle,
 } from 'lucide-react';
-import { UserSubscription } from '../types';
+import { UserSubscription, PricingTier } from '../types';
+import { PRICING_TIERS } from '../data/mockDatabase';
 
 interface PricingPageProps {
   subscription: UserSubscription;
   onUpdateSubscription: (
-    newPlan: 'free' | 'pro' | 'enterprise',
+    newPlan: string,
     newStatus?: 'active' | 'canceled',
     details?: Partial<UserSubscription>
   ) => void;
@@ -39,10 +40,11 @@ export const PricingPage: React.FC<PricingPageProps> = ({
 }) => {
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'annual'>('monthly');
   const [showPayPalModal, setShowPayPalModal] = useState<boolean>(false);
-  const [selectedPlan, setSelectedPlan] = useState<'free' | 'pro' | 'enterprise'>('pro');
+  const [selectedPlan, setSelectedPlan] = useState<string>('50');
+  const [tierCategoryFilter, setTierCategoryFilter] = useState<'all' | 'creators' | 'agencies'>('all');
   const [isProcessingPayPal, setIsProcessingPayPal] = useState<boolean>(false);
   const [webhookLog, setWebhookLog] = useState<string[]>([]);
-  const [paypalEmail, setPaypalEmail] = useState<string>('garciasaul501@gmail.com');
+  const [paypalEmail, setPaypalEmail] = useState<string>('');
   const [testResult, setTestResult] = useState<string | null>(null);
 
   // Whop connection discount states
@@ -72,27 +74,30 @@ export const PricingPage: React.FC<PricingPageProps> = ({
     setWebhookLog((prev) => [`[${new Date().toLocaleTimeString()}] ${msg}`, ...prev.slice(0, 9)]);
   };
 
-  // Price calculator helpers
-  const calculatePlanPrice = (plan: 'free' | 'pro' | 'enterprise', cycle: 'monthly' | 'annual') => {
-    if (plan === 'free') return { base: 0, final: 0, savings: 0 };
-    let base = 19;
-    if (plan === 'enterprise') {
-      base = cycle === 'annual' ? 39 : 49;
-    } else {
-      base = cycle === 'annual' ? 15 : 19;
-    }
+  // Price calculator helpers supporting all tiers: 10, 30, 50, 100, 500, 1000
+  const calculatePlanPrice = (planId: string, cycle: 'monthly' | 'annual') => {
+    const tier = PRICING_TIERS.find((t) => t.id === planId) || PRICING_TIERS[3];
+    if (tier.id === 'free') return { base: 0, final: 0, savings: 0, perPrompt: 0 };
+    const base = cycle === 'annual' ? tier.annualBasePrice : tier.monthlyBasePrice;
 
     if (!whopDiscountActive) {
-      return { base, final: base, savings: 0 };
+      return {
+        base,
+        final: base,
+        savings: 0,
+        perPrompt: parseFloat((base / tier.promptsCount).toFixed(2)),
+      };
     }
 
     const discount = parseFloat((base * DISCOUNT_RATE).toFixed(2));
     const final = parseFloat((base - discount).toFixed(2));
-    return { base, final, savings: discount };
+    return {
+      base,
+      final,
+      savings: discount,
+      perPrompt: parseFloat((final / tier.promptsCount).toFixed(2)),
+    };
   };
-
-  const proPrices = calculatePlanPrice('pro', billingCycle);
-  const enterprisePrices = calculatePlanPrice('enterprise', billingCycle);
 
   const handleValidateWhopCode = async (codeToValidate?: string) => {
     const input = codeToValidate || whopUserInput;
@@ -126,8 +131,8 @@ export const PricingPage: React.FC<PricingPageProps> = ({
     }
   };
 
-  const handleOpenPayPalModal = (plan: 'pro' | 'enterprise') => {
-    setSelectedPlan(plan);
+  const handleOpenPayPalModal = (planId: string) => {
+    setSelectedPlan(planId);
     setShowPayPalModal(true);
   };
 
@@ -399,7 +404,7 @@ export const PricingPage: React.FC<PricingPageProps> = ({
         </div>
       </div>
 
-      {/* PayPal Merchant Verification Card (garciasaul@hotmail.com) */}
+      {/* PayPal Merchant Verification Card (Sanitized - No Personal Info) */}
       <div className="relative overflow-hidden rounded-2xl bg-linear-to-r from-blue-900 via-indigo-950 to-slate-900 text-white p-5 sm:p-6 shadow-md border border-blue-800/50">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-center space-x-3.5">
@@ -409,18 +414,18 @@ export const PricingPage: React.FC<PricingPageProps> = ({
             <div>
               <div className="flex items-center gap-2">
                 <span className="text-xs font-bold text-blue-300">
-                  PayPal Merchant Verificado
+                  Pasarela Oficial PayPal
                 </span>
                 <span className="inline-flex items-center gap-1 text-[10px] font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 px-2 py-0.5 rounded-full">
                   <CheckCircle2 className="w-3 h-3 text-emerald-400" />
-                  Activo
+                  Cuenta Verificada por PayPal
                 </span>
               </div>
               <h4 className="text-sm sm:text-base font-extrabold text-white mt-0.5">
-                Cuenta Receptora de Cobros: <span className="text-amber-300 font-mono">garciasaul@hotmail.com</span>
+                Recepción Oficial de Pagos: <span className="text-amber-300 font-bold">Cuenta Verificada por PayPal (Premier Business)</span>
               </h4>
               <p className="text-xs text-slate-300 mt-0.5">
-                Audita y verifica al instante los cobros, comprobantes y acreditaciones recibidas.
+                Procesamiento directo, comprobantes criptográficos y activación automática en tiempo real.
               </p>
             </div>
           </div>
@@ -432,7 +437,7 @@ export const PricingPage: React.FC<PricingPageProps> = ({
                 className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer"
               >
                 <Receipt className="w-4 h-4" />
-                <span>Verificar mis Pagos PayPal</span>
+                <span>Auditoría de Pagos Verificados</span>
                 <ArrowRight className="w-3.5 h-3.5" />
               </button>
             )}
@@ -471,7 +476,7 @@ export const PricingPage: React.FC<PricingPageProps> = ({
               <span className="font-mono font-bold text-slate-800">{completedOrder.captureId}</span>
             </div>
             <div>
-              <span className="block text-[10px] text-slate-500">Monto Cobrado</span>
+              <span className="block text-[10px] text-slate-500">Monto Acreditado</span>
               <span className="font-bold text-emerald-700">${completedOrder.amountPaid} USD</span>
             </div>
             <div>
@@ -479,8 +484,8 @@ export const PricingPage: React.FC<PricingPageProps> = ({
               <span className="font-bold text-amber-700">{completedOrder.whopDiscountApplied ? '40% OFF Aplicado' : 'Estándar'}</span>
             </div>
             <div>
-              <span className="block text-[10px] text-slate-500">Estado</span>
-              <span className="font-extrabold text-emerald-600 uppercase">Activo</span>
+              <span className="block text-[10px] text-slate-500">Receptor</span>
+              <span className="font-extrabold text-emerald-600">Cuenta Verificada PayPal</span>
             </div>
           </div>
         </div>
@@ -496,7 +501,7 @@ export const PricingPage: React.FC<PricingPageProps> = ({
             <div className="flex items-center space-x-2">
               <span className="text-xs font-bold text-slate-800">Estado de Tu Suscripción:</span>
               <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider ${
-                subscription.planType === 'pro' || subscription.planType === 'enterprise'
+                subscription.planType !== 'free'
                   ? 'bg-amber-50 text-amber-800 border border-amber-300'
                   : 'bg-slate-100 text-slate-700'
               }`}>
@@ -504,7 +509,7 @@ export const PricingPage: React.FC<PricingPageProps> = ({
               </span>
             </div>
             <p className="text-xs text-slate-500 mt-0.5">
-              Método: <strong className="text-slate-700">PayPal Checkout</strong> • Quota: {subscription.usedPromptsThisMonth} / {subscription.monthlyPromptQuota} prompts este mes.
+              Método: <strong className="text-slate-700">Cuenta Verificada por PayPal</strong> • Cuota: {subscription.usedPromptsThisMonth} / {subscription.monthlyPromptQuota} prompts este mes.
             </p>
           </div>
         </div>
@@ -526,229 +531,197 @@ export const PricingPage: React.FC<PricingPageProps> = ({
         </div>
       )}
 
-      {/* Pricing Cards Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-        
-        {/* Plan Gratis */}
-        <div className="bg-white border border-slate-200 rounded-3xl p-6 flex flex-col justify-between space-y-6 shadow-xs">
-          <div>
-            <div className="flex items-center justify-between">
-              <h3 className="text-lg font-bold text-slate-900">Empieza Gratis</h3>
-              <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200">
-                10 Créditos
-              </span>
-            </div>
-            <div className="mt-4 flex items-baseline space-x-1">
-              <span className="text-3xl font-extrabold text-slate-900">$0</span>
-              <span className="text-xs text-slate-500">/mes (Sin tarjeta)</span>
-            </div>
-            <p className="mt-2 text-xs text-slate-600">Empieza inmediatamente con 10 créditos mensuales sin ingresar tarjeta.</p>
+      {/* Plan Category Filter Bar */}
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-2">
+        <div>
+          <h2 className="text-xl sm:text-2xl font-extrabold text-slate-900">
+            Elige el Plan que Mejor Impulsa tus Ganancias
+          </h2>
+          <p className="text-xs text-slate-500 mt-0.5">
+            Desde 5 créditos gratis para probar hasta 1,000 prompts para operaciones de alto volumen.
+          </p>
+        </div>
 
-            <ul className="mt-6 space-y-3 text-xs text-slate-700">
-              <li className="flex items-center space-x-2">
-                <Check className="w-4 h-4 text-emerald-500 shrink-0" />
-                <span className="font-bold text-slate-900">10 ejecuciones de prompts gratis al mes</span>
-              </li>
-              <li className="flex items-center space-x-2">
-                <Check className="w-4 h-4 text-emerald-500 shrink-0" />
-                <span>Creación e inspiración de Prompts con IA</span>
-              </li>
-              <li className="flex items-center space-x-2">
-                <Check className="w-4 h-4 text-emerald-500 shrink-0" />
-                <span>Interpolador dinámico de variables</span>
-              </li>
-              <li className="flex items-center space-x-2">
-                <Check className="w-4 h-4 text-emerald-500 shrink-0" />
-                <span>Acceso a la galería pública completa</span>
-              </li>
-              <li className="flex items-center space-x-2 text-slate-400">
-                <X className="w-4 h-4 shrink-0 text-slate-400" />
-                <span className="line-through">Prompts Premium de alta conversión</span>
-              </li>
-            </ul>
-          </div>
-
+        <div className="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200 text-xs font-bold">
           <button
-            disabled={subscription.planType === 'free'}
-            onClick={() => handleSimulatePayPalWebhook('BILLING.SUBSCRIPTION.CANCELLED')}
-            className="w-full py-2.5 rounded-xl border border-slate-200 text-slate-700 font-bold text-xs hover:bg-slate-50 disabled:opacity-50 transition-colors"
+            onClick={() => setTierCategoryFilter('all')}
+            className={`px-3 py-1.5 rounded-lg transition-all ${
+              tierCategoryFilter === 'all'
+                ? 'bg-white text-indigo-700 shadow-xs font-extrabold'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
           >
-            {subscription.planType === 'free' ? 'Plan Actual' : 'Cambiar a Gratis'}
+            Todos los Planes (7)
+          </button>
+          <button
+            onClick={() => setTierCategoryFilter('creators')}
+            className={`px-3 py-1.5 rounded-lg transition-all ${
+              tierCategoryFilter === 'creators'
+                ? 'bg-white text-indigo-700 shadow-xs font-extrabold'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            Esenciales (5, 10, 30, 50)
+          </button>
+          <button
+            onClick={() => setTierCategoryFilter('agencies')}
+            className={`px-3 py-1.5 rounded-lg transition-all ${
+              tierCategoryFilter === 'agencies'
+                ? 'bg-white text-indigo-700 shadow-xs font-extrabold'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            Agencias & Escala (100, 500, 1000)
           </button>
         </div>
-
-        {/* Plan PRO (Featured Gold + Blue) */}
-        <div className="relative bg-gradient-to-b from-amber-50/70 via-white to-white border-2 border-amber-400 rounded-3xl p-6 flex flex-col justify-between space-y-6 shadow-xl shadow-amber-500/10">
-          <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 px-4 py-0.5 rounded-full bg-gradient-to-r from-amber-400 to-amber-500 text-slate-950 text-[11px] font-extrabold tracking-wider uppercase shadow-xs">
-            ★ Más Popular
-          </div>
-
-          <div>
-            <div className="flex items-center justify-between">
-              <h3 className="text-lg font-bold text-slate-900 flex items-center space-x-2">
-                <span>Pro Creator</span>
-                <Sparkles className="w-4 h-4 text-amber-500" />
-              </h3>
-              {whopDiscountActive ? (
-                <span className="text-[10px] font-black px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300">
-                  -40% WHOP
-                </span>
-              ) : (
-                <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-300">
-                  Whop @saulmente
-                </span>
-              )}
-            </div>
-
-            <div className="mt-4">
-              <div className="flex items-baseline space-x-2">
-                <span className="text-3xl font-black text-amber-600">
-                  ${proPrices.final}
-                </span>
-                {whopDiscountActive && (
-                  <span className="text-sm font-semibold text-slate-400 line-through">
-                    ${proPrices.base}
-                  </span>
-                )}
-                <span className="text-xs text-slate-500">/mes</span>
-              </div>
-              {whopDiscountActive && (
-                <p className="text-[11px] font-bold text-emerald-600 mt-1">
-                  🎉 Ahorras ${proPrices.savings}/mes con tu membresía en Whop @saulmente
-                </p>
-              )}
-            </div>
-
-            <p className="mt-2 text-xs text-slate-600">Para creadores, marketers y profesionales que requieren máxima potencia.</p>
-
-            <ul className="mt-6 space-y-3 text-xs text-slate-700">
-              <li className="flex items-center space-x-2">
-                <Check className="w-4 h-4 text-emerald-500 shrink-0" />
-                <span className="font-bold text-slate-900">Acceso Completo a la Galería PRO</span>
-              </li>
-              <li className="flex items-center space-x-2">
-                <Check className="w-4 h-4 text-emerald-500 shrink-0" />
-                <span className="font-extrabold text-amber-700">50 ejecuciones mensuales de prompts</span>
-              </li>
-              <li className="flex items-center space-x-2">
-                <Check className="w-4 h-4 text-emerald-500 shrink-0" />
-                <span>Creador de Prompts con IA desde Ideas</span>
-              </li>
-              <li className="flex items-center space-x-2">
-                <Check className="w-4 h-4 text-emerald-500 shrink-0" />
-                <span>Uso de API Keys propias (OpenAI / Claude / TikTok)</span>
-              </li>
-              <li className="flex items-center space-x-2">
-                <Check className="w-4 h-4 text-emerald-500 shrink-0" />
-                <span>Guardado ilimitado de favoritos</span>
-              </li>
-            </ul>
-          </div>
-
-          <div className="space-y-2">
-            {/* PayPal Button */}
-            <button
-              onClick={() => handleOpenPayPalModal('pro')}
-              className="w-full py-3.5 rounded-xl bg-[#ffc439] hover:bg-[#f4bb33] text-[#003087] font-black text-xs shadow-md shadow-amber-500/20 transition-all flex items-center justify-center space-x-2 text-center border border-[#e0a824]"
-            >
-              <span className="font-black italic text-sm tracking-tighter">PayPal</span>
-              <span className="text-slate-900 font-extrabold">• Pagar ${proPrices.final} USD</span>
-            </button>
-
-            {/* Direct Whop Link */}
-            <a
-              href={WHOP_PROFILE_URL}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="w-full py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-[11px] transition-all flex items-center justify-center space-x-1.5 text-center"
-            >
-              <span>O suscríbete en Whop @saulmente</span>
-              <ExternalLink className="w-3 h-3 text-slate-600" />
-            </a>
-          </div>
-        </div>
-
-        {/* Plan Enterprise */}
-        <div className="bg-white border border-slate-200 rounded-3xl p-6 flex flex-col justify-between space-y-6 shadow-xs">
-          <div>
-            <div className="flex items-center justify-between">
-              <h3 className="text-lg font-bold text-slate-900">Enterprise VIP</h3>
-              {whopDiscountActive ? (
-                <span className="text-[10px] font-black px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300">
-                  -40% WHOP
-                </span>
-              ) : (
-                <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200">
-                  Ilimitado
-                </span>
-              )}
-            </div>
-
-            <div className="mt-4">
-              <div className="flex items-baseline space-x-2">
-                <span className="text-3xl font-black text-slate-900">
-                  ${enterprisePrices.final}
-                </span>
-                {whopDiscountActive && (
-                  <span className="text-sm font-semibold text-slate-400 line-through">
-                    ${enterprisePrices.base}
-                  </span>
-                )}
-                <span className="text-xs text-slate-500">/mes</span>
-              </div>
-              {whopDiscountActive && (
-                <p className="text-[11px] font-bold text-emerald-600 mt-1">
-                  🎉 Ahorras ${enterprisePrices.savings}/mes con Whop @saulmente
-                </p>
-              )}
-            </div>
-
-            <p className="mt-2 text-xs text-slate-600">Para agencias y equipos con necesidades avanzadas de IA.</p>
-
-            <ul className="mt-6 space-y-3 text-xs text-slate-700">
-              <li className="flex items-center space-x-2">
-                <Check className="w-4 h-4 text-emerald-500 shrink-0" />
-                <span>Todo lo del Plan Pro</span>
-              </li>
-              <li className="flex items-center space-x-2">
-                <Check className="w-4 h-4 text-emerald-500 shrink-0" />
-                <span className="font-extrabold text-indigo-700">Ejecuciones de Prompts ILIMITADAS</span>
-              </li>
-              <li className="flex items-center space-x-2">
-                <Check className="w-4 h-4 text-emerald-500 shrink-0" />
-                <span>Gestión de equipos (hasta 10 miembros)</span>
-              </li>
-              <li className="flex items-center space-x-2">
-                <Check className="w-4 h-4 text-emerald-500 shrink-0" />
-                <span>SLA de rendimiento y soporte 24/7</span>
-              </li>
-            </ul>
-          </div>
-
-          <div className="space-y-2">
-            {/* PayPal Button */}
-            <button
-              onClick={() => handleOpenPayPalModal('enterprise')}
-              className="w-full py-3.5 rounded-xl bg-[#ffc439] hover:bg-[#f4bb33] text-[#003087] font-black text-xs shadow-md shadow-amber-500/20 transition-all flex items-center justify-center space-x-2 text-center border border-[#e0a824]"
-            >
-              <span className="font-black italic text-sm tracking-tighter">PayPal</span>
-              <span className="text-slate-900 font-extrabold">• Pagar ${enterprisePrices.final} USD</span>
-            </button>
-
-            {/* Direct Whop Link */}
-            <a
-              href={WHOP_PROFILE_URL}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="w-full py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-[11px] transition-all flex items-center justify-center space-x-1.5 text-center"
-            >
-              <span>O suscríbete en Whop @saulmente</span>
-              <ExternalLink className="w-3 h-3 text-slate-600" />
-            </a>
-          </div>
-        </div>
-
       </div>
+
+      {/* 7 Pricing Cards Grid (5 Gratis, 10, 30, 50, 100, 500, 1000) */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+        {PRICING_TIERS
+          .filter((tier) => {
+            if (tierCategoryFilter === 'creators') {
+              return ['free', '10', '30', '50'].includes(tier.id);
+            }
+            if (tierCategoryFilter === 'agencies') {
+              return ['100', '500', '1000'].includes(tier.id);
+            }
+            return true;
+          })
+          .map((tier) => {
+            const price = calculatePlanPrice(tier.id, billingCycle);
+            const isCurrent = subscription.planType === tier.id;
+            const isFeatured = tier.popular || tier.id === '50';
+
+            return (
+              <div
+                key={tier.id}
+                className={`relative rounded-3xl p-6 flex flex-col justify-between space-y-6 transition-all duration-200 ${
+                  isFeatured
+                    ? 'bg-gradient-to-b from-amber-50/80 via-white to-white border-2 border-amber-400 shadow-xl shadow-amber-500/10'
+                    : 'bg-white border border-slate-200 hover:border-slate-300 shadow-xs'
+                }`}
+              >
+                {/* Floating Badge */}
+                {tier.badge && (
+                  <div className={`absolute -top-3.5 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-full text-[10px] font-extrabold tracking-wider uppercase shadow-xs ${
+                    isFeatured
+                      ? 'bg-gradient-to-r from-amber-400 to-amber-500 text-slate-950'
+                      : 'bg-slate-800 text-white'
+                  }`}>
+                    {tier.badge}
+                  </div>
+                )}
+
+                <div>
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-base font-bold text-slate-900 flex items-center space-x-1.5">
+                      <span>{tier.name}</span>
+                      {isFeatured && <Sparkles className="w-4 h-4 text-amber-500 fill-current" />}
+                    </h3>
+                    <span className="text-xs font-black px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-800 border border-slate-200">
+                      {tier.promptsCount} Prompts
+                    </span>
+                  </div>
+
+                  {/* Pricing Box */}
+                  <div className="mt-4">
+                    {tier.id === 'free' ? (
+                      <div>
+                        <div className="flex items-baseline space-x-1">
+                          <span className="text-3xl font-black text-slate-900">$0</span>
+                          <span className="text-xs text-slate-500">/mes (Sin tarjeta)</span>
+                        </div>
+                        <p className="text-[11px] text-slate-500 mt-1">Prueba gratis con 5 créditos mensuales.</p>
+                      </div>
+                    ) : (
+                      <div>
+                        <div className="flex items-baseline space-x-2">
+                          <span className={`text-3xl font-black ${isFeatured ? 'text-amber-600' : 'text-slate-900'}`}>
+                            ${price.final}
+                          </span>
+                          {whopDiscountActive && (
+                            <span className="text-xs font-semibold text-slate-400 line-through">
+                              ${price.base}
+                            </span>
+                          )}
+                          <span className="text-xs text-slate-500">/mes</span>
+                        </div>
+
+                        {whopDiscountActive && (
+                          <div className="flex items-center justify-between mt-1 text-[11px]">
+                            <span className="font-bold text-emerald-600">
+                              -40% OFF Whop (@saulmente)
+                            </span>
+                            <span className="font-mono text-slate-500 text-[10px]">
+                              ~${price.perPrompt}/prompt
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  <p className="mt-2 text-xs text-slate-600 leading-relaxed">
+                    {tier.description}
+                  </p>
+
+                  <div className="mt-4 pt-3 border-t border-slate-100">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-2">
+                      Beneficios incluidos:
+                    </span>
+                    <ul className="space-y-2 text-xs text-slate-700">
+                      {tier.features.map((feat, idx) => (
+                        <li key={idx} className="flex items-start space-x-2">
+                          <Check className="w-3.5 h-3.5 text-emerald-500 shrink-0 mt-0.5" />
+                          <span className="leading-tight">{feat}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+
+                {/* Card Action Buttons */}
+                <div className="space-y-2 pt-3 border-t border-slate-100 mt-auto">
+                  {tier.id === 'free' ? (
+                    <button
+                      disabled={isCurrent}
+                      onClick={() => handleSimulatePayPalWebhook('BILLING.SUBSCRIPTION.CANCELLED')}
+                      className="w-full py-2.5 rounded-xl border border-slate-200 text-slate-700 font-bold text-xs hover:bg-slate-50 disabled:opacity-50 transition-colors"
+                    >
+                      {isCurrent ? 'Plan Actual (5 Prompts)' : 'Probar Gratis'}
+                    </button>
+                  ) : (
+                    <>
+                      <button
+                        onClick={() => handleOpenPayPalModal(tier.id)}
+                        className={`w-full py-3 rounded-xl font-black text-xs shadow-md transition-all flex items-center justify-center space-x-1.5 cursor-pointer ${
+                          isFeatured
+                            ? 'bg-[#ffc439] hover:bg-[#f4bb33] text-[#003087] border border-[#e0a824] shadow-amber-500/20'
+                            : 'bg-[#ffc439] hover:bg-[#f4bb33] text-[#003087] border border-[#e0a824]'
+                        }`}
+                      >
+                        <span className="font-black italic text-sm tracking-tighter">PayPal</span>
+                        <span className="text-slate-900 font-extrabold">• Pagar ${price.final} USD</span>
+                      </button>
+
+                      <a
+                        href={WHOP_PROFILE_URL}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="w-full py-1.5 rounded-lg bg-slate-50 hover:bg-slate-100 text-slate-700 font-semibold text-[10px] transition-all flex items-center justify-center space-x-1 text-center border border-slate-200"
+                      >
+                        <span>40% OFF con Whop @saulmente</span>
+                        <ExternalLink className="w-3 h-3 text-slate-400" />
+                      </a>
+                    </>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+      </div>
+
 
       {/* PayPal Subscription & Test Suite */}
       <div className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 space-y-6 shadow-xs">

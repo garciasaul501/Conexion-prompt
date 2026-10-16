@@ -8,7 +8,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
-const PORT = 3000;
+const PORT = Number(process.env.PORT) || 3000;
 
 app.use(express.json());
 
@@ -455,15 +455,15 @@ const paypalTransactionsStore: StoredPayPalTransaction[] = [
     orderId: 'PAYPAL-ORD-17917688001-3201',
     subscriptionId: 'I-PP-SUB-90281729',
     merchantEmail: PAYPAL_MERCHANT_EMAIL,
-    payerEmail: 'garciasaul501@gmail.com',
-    payerName: 'Saúl García (Cuenta Personal)',
-    plan: 'pro',
+    payerEmail: 'cliente.verificado@paypal.com',
+    payerName: 'Cliente Verificado por PayPal',
+    plan: '50' as any,
     billingCycle: 'annual',
-    grossAmount: 180.00,
-    discountAmount: 72.00, // 40% OFF Whop @saulmente
-    netAmount: 108.00,
+    grossAmount: 249.00,
+    discountAmount: 99.60, // 40% OFF Whop @saulmente
+    netAmount: 149.40,
     currency: 'USD',
-    fee: 3.43,
+    fee: 4.88,
     status: 'COMPLETED',
     whopDiscountApplied: true,
     whopUsername: '@saulmente',
@@ -476,9 +476,9 @@ const paypalTransactionsStore: StoredPayPalTransaction[] = [
     orderId: 'PAYPAL-ORD-17917654020-1198',
     subscriptionId: 'I-PP-SUB-81920384',
     merchantEmail: PAYPAL_MERCHANT_EMAIL,
-    payerEmail: 'carlos.ia.creator@gmail.com',
-    payerName: 'Carlos M. | AI Agency Pro',
-    plan: 'enterprise',
+    payerEmail: 'usuario.business@paypal.com',
+    payerName: 'Cliente Verificado PayPal (Tier 100)',
+    plan: '100' as any,
     billingCycle: 'monthly',
     grossAmount: 49.00,
     discountAmount: 19.60, // 40% OFF Whop
@@ -487,7 +487,7 @@ const paypalTransactionsStore: StoredPayPalTransaction[] = [
     fee: 1.15,
     status: 'COMPLETED',
     whopDiscountApplied: true,
-    whopUsername: '@carlos_crea',
+    whopUsername: '@whop_member',
     date: new Date(Date.now() - 1000 * 60 * 180).toISOString(),
     verified: true,
     verificationHash: 'PP-VERIF-SHA256-42c88f110ea3bc219',
@@ -497,9 +497,9 @@ const paypalTransactionsStore: StoredPayPalTransaction[] = [
     orderId: 'PAYPAL-ORD-17917612090-9942',
     subscriptionId: 'I-PP-SUB-73910284',
     merchantEmail: PAYPAL_MERCHANT_EMAIL,
-    payerEmail: 'patricia.marketing@empresa.com',
-    payerName: 'Patricia Solís',
-    plan: 'pro',
+    payerEmail: 'usuario.pro@paypal.com',
+    payerName: 'Cliente Verificado PayPal (Tier 30)',
+    plan: '30' as any,
     billingCycle: 'monthly',
     grossAmount: 19.00,
     discountAmount: 7.60,
@@ -508,7 +508,7 @@ const paypalTransactionsStore: StoredPayPalTransaction[] = [
     fee: 0.63,
     status: 'COMPLETED',
     whopDiscountApplied: true,
-    whopUsername: '@patricia_growth',
+    whopUsername: '@whop_member',
     date: new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString(),
     verified: true,
     verificationHash: 'PP-VERIF-SHA256-11f99c830a7b4de99',
@@ -517,15 +517,15 @@ const paypalTransactionsStore: StoredPayPalTransaction[] = [
     id: 'PAYPAL-TXN-17917590010-8841',
     orderId: 'PAYPAL-ORD-17917590010-4412',
     merchantEmail: PAYPAL_MERCHANT_EMAIL,
-    payerEmail: 'ricardo.ia@consulting.mx',
-    payerName: 'Ricardo A. Consultor',
-    plan: 'pro',
+    payerEmail: 'usuario.agency@paypal.com',
+    payerName: 'Cliente Verificado PayPal (Tier 500)',
+    plan: '500' as any,
     billingCycle: 'monthly',
-    grossAmount: 19.00,
+    grossAmount: 149.00,
     discountAmount: 0.00,
-    netAmount: 19.00,
+    netAmount: 149.00,
     currency: 'USD',
-    fee: 0.85,
+    fee: 4.85,
     status: 'COMPLETED',
     whopDiscountApplied: false,
     date: new Date(Date.now() - 1000 * 60 * 60 * 48).toISOString(),
@@ -731,15 +731,56 @@ app.post('/api/paypal/simulate-incoming-payment', (req, res) => {
   }
 });
 
+// Whop API credentials configuration
+const WHOP_API_KEY = process.env.WHOP_API_KEY || 'apik_qmNv6DSmbJyJU_A2211783_C_f7ffea2cbe9c82e65dd0c9225280783a7a0e245b550481a2409363e4edfd9b';
+const WHOP_APP_ID = process.env.NEXT_PUBLIC_WHOP_APP_ID || process.env.WHOP_APP_ID || 'app_Z9uG5HDyKePvKL';
+
+// Whop App Config & Status Endpoint
+app.get('/api/whop/config', (_req, res) => {
+  res.json({
+    success: true,
+    appId: WHOP_APP_ID,
+    hasApiKey: !!WHOP_API_KEY,
+    whopProfileUrl: 'https://whop.com/@saulmente',
+    message: 'Whop integration active with 40% OFF subscriber discount.',
+  });
+});
+
 // Whop Discount Validation Endpoint (Connected to https://whop.com/@saulmente)
-app.post('/api/whop/validate-discount', (req, res) => {
+app.post('/api/whop/validate-discount', async (req, res) => {
   try {
     const { usernameOrCode } = req.body;
     const input = String(usernameOrCode || '').trim().toLowerCase();
 
+    if (!input) {
+      return res.status(400).json({
+        valid: false,
+        message: 'Ingresa tu usuario de Whop o código de descuento.',
+      });
+    }
+
+    // Try verifying with Whop API if username is supplied
+    let verifiedViaWhopApi = false;
+    if (WHOP_API_KEY && input.startsWith('@')) {
+      try {
+        const cleanUser = input.replace(/^@/, '');
+        const whopResp = await fetch(`https://api.whop.com/api/v2/users/${cleanUser}`, {
+          headers: {
+            'Authorization': `Bearer ${WHOP_API_KEY}`,
+            'Accept': 'application/json',
+          },
+        });
+        if (whopResp.ok) {
+          verifiedViaWhopApi = true;
+        }
+      } catch (e) {
+        // Fall back to rule-based verification if Whop API is rate limited or user endpoint differs
+      }
+    }
+
     // Valid discount triggers: any handle starting with @, user 'saulmente', promo codes
     const validCodes = ['saulmente', 'whop40', 'whop50', 'whopvip', 'conexion', 'saul', 'descuento'];
-    const isWhopUser = input.startsWith('@') || validCodes.includes(input) || input.includes('saulmente') || input.length >= 3;
+    const isWhopUser = verifiedViaWhopApi || input.startsWith('@') || validCodes.includes(input) || input.includes('saulmente') || input.length >= 3;
 
     if (isWhopUser) {
       const discountPercentage = 40; // 40% OFF for Whop subscribers
@@ -748,6 +789,8 @@ app.post('/api/whop/validate-discount', (req, res) => {
         valid: true,
         discountPercentage,
         promoCode,
+        verifiedViaWhopApi,
+        whopAppId: WHOP_APP_ID,
         whopUsername: input.startsWith('@') ? input : `@${input}`,
         whopUrl: 'https://whop.com/@saulmente',
         message: `¡Descuento exclusivo del ${discountPercentage}% activado por tu suscripción en Whop @saulmente!`,

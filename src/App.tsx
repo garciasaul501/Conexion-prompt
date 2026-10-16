@@ -67,16 +67,25 @@ export default function App() {
   };
 
   const handleUpdateSubscription = (
-    newPlan: 'free' | 'pro' | 'enterprise',
+    newPlan: string,
     newStatus: 'active' | 'canceled' = 'active',
     details?: Partial<UserSubscription>
   ) => {
     setSubscription((prev) => {
+      let quota = 5;
+      if (newPlan === '10') quota = 10;
+      else if (newPlan === '30') quota = 30;
+      else if (newPlan === '50' || newPlan === 'pro') quota = 50;
+      else if (newPlan === '100') quota = 100;
+      else if (newPlan === '500') quota = 500;
+      else if (newPlan === '1000' || newPlan === 'enterprise') quota = 1000;
+      else if (details?.monthlyPromptQuota) quota = details.monthlyPromptQuota;
+
       const updated: UserSubscription = {
         ...prev,
         planType: newPlan,
         status: newStatus,
-        monthlyPromptQuota: newPlan === 'pro' ? 50 : newPlan === 'enterprise' ? 99999 : 10,
+        monthlyPromptQuota: quota,
         ...(details || {}),
       };
       try {
