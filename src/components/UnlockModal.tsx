@@ -175,7 +175,7 @@ export const UnlockModal: React.FC<UnlockModalProps> = ({
           <p className="text-xs sm:text-sm text-slate-200 mt-2 leading-relaxed max-w-xl">
             {isUnlocked
               ? 'Tu suscripción está activa. Tienes acceso sin límites al Optimizador de Prompts IA, Generador desde Ideas, Gemini 3.8 Flash y descargas en PDF.'
-              : 'La herramienta está protegida hasta que adquieras tu suscripción o compres tu acceso. Los pagos se acreditan directamente a la cuenta verificada garciasaul@hotmail.com.'}
+              : 'La herramienta está protegida hasta que adquieras tu suscripción o compres tu acceso. Los pagos se acreditan directamente a la Cuenta Verificada por PayPal.'}
           </p>
         </div>
 
@@ -206,7 +206,7 @@ export const UnlockModal: React.FC<UnlockModalProps> = ({
                 <span>¿Ya pagaste o tienes una suscripción? Desbloquear al Instante:</span>
               </h3>
               <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full">
-                Receptor garciasaul@hotmail.com
+                Cuenta Verificada por PayPal
               </span>
             </div>
 
@@ -219,7 +219,7 @@ export const UnlockModal: React.FC<UnlockModalProps> = ({
                 type="text"
                 value={verifyEmailOrId}
                 onChange={(e) => setVerifyEmailOrId(e.target.value)}
-                placeholder="ej: garciasaul501@gmail.com o PAYPAL-TXN-..."
+                placeholder="ej: tu-correo@paypal.com o PAYPAL-TXN-..."
                 className="flex-1 bg-white border border-slate-300 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-indigo-500 font-mono"
               />
               <button
@@ -260,7 +260,7 @@ export const UnlockModal: React.FC<UnlockModalProps> = ({
                   </span>
                 </div>
                 <p className="text-[11px] text-slate-600 leading-relaxed">
-                  Paga tu plan mensual o anual con PayPal. Recibe el pago seguro en <strong>garciasaul@hotmail.com</strong> y desbloquea en 3 segundos.
+                  Paga tu plan mensual o anual con PayPal. Recibe el pago seguro en la <strong>Cuenta Verificada por PayPal</strong> y desbloquea en 3 segundos.
                 </p>
               </div>
 

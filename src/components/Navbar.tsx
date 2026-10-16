@@ -62,7 +62,7 @@ export const Navbar: React.FC<NavbarProps> = ({
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
         
         {/* Brand Logo */}
-        <div className="flex items-center space-x-3 cursor-pointer shrink-0" onClick={() => setActiveTab('gallery')}>
+        <div className="flex items-center space-x-3 cursor-pointer shrink-0" onClick={() => setActiveTab('pricing')}>
           <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-amber-400 via-amber-300 to-indigo-600 p-0.5 shadow-md shadow-indigo-500/10 flex items-center justify-center">
             <div className="w-full h-full bg-white rounded-[10px] flex items-center justify-center">
               <Sparkles className="w-5 h-5 text-amber-500" />
@@ -73,8 +73,8 @@ export const Navbar: React.FC<NavbarProps> = ({
               <span className="font-extrabold text-base sm:text-lg tracking-tight text-slate-900 drop-shadow-xs">
                 Conexión <span className="text-amber-500">Prompts</span>
               </span>
-              <span className="hidden sm:inline-block text-[10px] uppercase tracking-wider font-bold px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200">
-                Conexión Whop
+              <span className="hidden sm:inline-block text-[10px] uppercase tracking-wider font-bold px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-300">
+                Suscribirse Ya
               </span>
             </div>
           </div>
@@ -82,6 +82,19 @@ export const Navbar: React.FC<NavbarProps> = ({
 
         {/* Primary Desktop Navigation Tabs */}
         <nav className="hidden lg:flex items-center space-x-1 bg-slate-100/90 p-1 rounded-xl border border-slate-200">
+          {/* Main Landing Tab: Planes & Suscribirse Ya */}
+          <button
+            onClick={() => setActiveTab('pricing')}
+            className={`flex items-center space-x-2 px-3.5 py-1.5 rounded-lg text-xs font-black transition-all ${
+              activeTab === 'pricing'
+                ? 'bg-gradient-to-r from-amber-500 to-amber-400 text-slate-950 shadow-md font-black border border-amber-400'
+                : 'text-amber-900 bg-amber-100/90 hover:bg-amber-200 border border-amber-300 shadow-xs'
+            }`}
+          >
+            <CreditCard className="w-4 h-4 text-slate-950" />
+            <span>⭐ Planes & Suscribirse</span>
+          </button>
+
           <button
             onClick={() => setActiveTab('gallery')}
             className={`flex items-center space-x-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
@@ -90,7 +103,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 : 'text-slate-600 hover:text-slate-900 hover:bg-white/80'
             }`}
           >
-            <Compass className="w-4 h-4 text-amber-500" />
+            <Compass className="w-4 h-4 text-indigo-500" />
             <span>Ver Prompts</span>
           </button>
 
@@ -98,11 +111,11 @@ export const Navbar: React.FC<NavbarProps> = ({
             onClick={() => setActiveTab('optimizer')}
             className={`flex items-center space-x-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
               activeTab === 'optimizer'
-                ? 'bg-gradient-to-r from-amber-400 to-amber-500 text-slate-950 shadow-sm border border-amber-300 font-extrabold'
-                : 'text-amber-700 bg-amber-50/70 hover:bg-amber-100/80 border border-amber-200'
+                ? 'bg-indigo-600 text-white shadow-sm'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-white/80'
             }`}
           >
-            <Sparkles className="w-4 h-4 text-amber-500 fill-current" />
+            <Sparkles className="w-4 h-4 text-amber-500" />
             <span>Optimizador IA ✨</span>
           </button>
 
@@ -137,32 +150,6 @@ export const Navbar: React.FC<NavbarProps> = ({
           >
             <FileDown className="w-4 h-4 text-indigo-600" />
             <span>Bajar PDF</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('pricing')}
-            className={`flex items-center space-x-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-              activeTab === 'pricing'
-                ? 'bg-indigo-600 text-white shadow-sm'
-                : 'text-slate-600 hover:text-slate-900 hover:bg-white/80'
-            }`}
-          >
-            <CreditCard className="w-4 h-4 text-indigo-500" />
-            <span>Planes</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('paypal-verify')}
-            className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-              activeTab === 'paypal-verify'
-                ? 'bg-blue-600 text-white shadow-sm'
-                : 'text-blue-700 bg-blue-50/70 hover:bg-blue-100 border border-blue-200'
-            }`}
-            title="Verificar pagos PayPal en garciasaul@hotmail.com"
-          >
-            <ShieldCheck className="w-4 h-4 text-blue-600" />
-            <span>Verificar Pagos</span>
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
           </button>
 
           <button
@@ -254,13 +241,22 @@ export const Navbar: React.FC<NavbarProps> = ({
       {/* Mobile Bar Navigation */}
       <div className="lg:hidden flex items-center justify-around border-t border-slate-200 bg-white py-2 text-xs font-medium text-slate-600 overflow-x-auto px-2">
         <button
+          onClick={() => setActiveTab('pricing')}
+          className={`flex flex-col items-center space-y-1 px-2.5 py-1 rounded-lg ${
+            activeTab === 'pricing' ? 'text-amber-700 font-extrabold bg-amber-100 border border-amber-300' : 'text-slate-700 font-bold'
+          }`}
+        >
+          <CreditCard className="w-4 h-4 text-amber-600" />
+          <span>⭐ Planes</span>
+        </button>
+        <button
           onClick={() => setActiveTab('gallery')}
           className={`flex flex-col items-center space-y-1 px-2 py-1 rounded-lg ${
             activeTab === 'gallery' ? 'text-indigo-600 font-bold bg-indigo-50/70' : ''
           }`}
         >
           <Compass className="w-4 h-4" />
-          <span>Ver Prompts</span>
+          <span>Prompts</span>
         </button>
         <button
           onClick={() => setActiveTab('optimizer')}
@@ -278,7 +274,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           }`}
         >
           <Wand2 className="w-4 h-4 text-indigo-500" />
-          <span>Creador IA</span>
+          <span>Creador</span>
         </button>
         <button
           onClick={() => setActiveTab('my-prompts')}
@@ -287,14 +283,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           }`}
         >
           <Bookmark className="w-4 h-4" />
-          <span>Mis Prompts</span>
-        </button>
-        <button
-          onClick={handleDownloadAllPdf}
-          className="flex flex-col items-center space-y-1 px-2.5 py-1 rounded-xl bg-amber-50 text-amber-900 border border-amber-300 font-extrabold shadow-xs"
-        >
-          <FileDown className="w-4 h-4 text-amber-600" />
-          <span>Bajar PDF</span>
+          <span>Guardados</span>
         </button>
         <button
           onClick={onOpenUnlockModal}
@@ -304,24 +293,6 @@ export const Navbar: React.FC<NavbarProps> = ({
         >
           {isPro || isEnterprise ? <Unlock className="w-4 h-4 text-emerald-600" /> : <Lock className="w-4 h-4 text-slate-950" />}
           <span>{isPro || isEnterprise ? 'Activo' : 'Desbloquear'}</span>
-        </button>
-        <button
-          onClick={() => setActiveTab('pricing')}
-          className={`flex flex-col items-center space-y-1 px-2 py-1 rounded-lg ${
-            activeTab === 'pricing' ? 'text-indigo-600 font-bold bg-indigo-50/70' : ''
-          }`}
-        >
-          <CreditCard className="w-4 h-4" />
-          <span>Planes</span>
-        </button>
-        <button
-          onClick={() => setActiveTab('paypal-verify')}
-          className={`flex flex-col items-center space-y-1 px-2 py-1 rounded-lg ${
-            activeTab === 'paypal-verify' ? 'text-blue-600 font-bold bg-blue-50/70' : 'text-blue-700'
-          }`}
-        >
-          <ShieldCheck className="w-4 h-4 text-blue-600" />
-          <span>Verificar</span>
         </button>
       </div>
     </header>

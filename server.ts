@@ -459,11 +459,11 @@ const paypalTransactionsStore: StoredPayPalTransaction[] = [
     payerName: 'Cliente Verificado por PayPal',
     plan: '50' as any,
     billingCycle: 'annual',
-    grossAmount: 249.00,
-    discountAmount: 99.60, // 40% OFF Whop @saulmente
-    netAmount: 149.40,
+    grossAmount: 249,
+    discountAmount: 100, // 40% OFF Whop @saulmente
+    netAmount: 149,
     currency: 'USD',
-    fee: 4.88,
+    fee: 5,
     status: 'COMPLETED',
     whopDiscountApplied: true,
     whopUsername: '@saulmente',
@@ -480,11 +480,11 @@ const paypalTransactionsStore: StoredPayPalTransaction[] = [
     payerName: 'Cliente Verificado PayPal (Tier 100)',
     plan: '100' as any,
     billingCycle: 'monthly',
-    grossAmount: 49.00,
-    discountAmount: 19.60, // 40% OFF Whop
-    netAmount: 29.40,
+    grossAmount: 49,
+    discountAmount: 20, // 40% OFF Whop
+    netAmount: 29,
     currency: 'USD',
-    fee: 1.15,
+    fee: 1,
     status: 'COMPLETED',
     whopDiscountApplied: true,
     whopUsername: '@whop_member',
@@ -501,11 +501,11 @@ const paypalTransactionsStore: StoredPayPalTransaction[] = [
     payerName: 'Cliente Verificado PayPal (Tier 30)',
     plan: '30' as any,
     billingCycle: 'monthly',
-    grossAmount: 19.00,
-    discountAmount: 7.60,
-    netAmount: 11.40,
+    grossAmount: 19,
+    discountAmount: 8,
+    netAmount: 11,
     currency: 'USD',
-    fee: 0.63,
+    fee: 1,
     status: 'COMPLETED',
     whopDiscountApplied: true,
     whopUsername: '@whop_member',
@@ -521,11 +521,11 @@ const paypalTransactionsStore: StoredPayPalTransaction[] = [
     payerName: 'Cliente Verificado PayPal (Tier 500)',
     plan: '500' as any,
     billingCycle: 'monthly',
-    grossAmount: 149.00,
-    discountAmount: 0.00,
-    netAmount: 149.00,
+    grossAmount: 149,
+    discountAmount: 0,
+    netAmount: 149,
     currency: 'USD',
-    fee: 4.85,
+    fee: 5,
     status: 'COMPLETED',
     whopDiscountApplied: false,
     date: new Date(Date.now() - 1000 * 60 * 60 * 48).toISOString(),
@@ -691,10 +691,10 @@ app.post('/api/paypal/simulate-incoming-payment', (req, res) => {
       whopUsername = '@saulmente',
     } = req.body;
 
-    let basePrice = plan === 'enterprise' ? (billingCycle === 'annual' ? 39.0 : 49.0) : (billingCycle === 'annual' ? 15.0 : 19.0);
-    const discountAmount = whopDiscountApplied ? parseFloat((basePrice * 0.40).toFixed(2)) : 0;
-    const netAmount = parseFloat((basePrice - discountAmount).toFixed(2));
-    const fee = parseFloat((netAmount * 0.0349 + 0.49).toFixed(2));
+    const basePrice = Math.round(plan === 'enterprise' ? (billingCycle === 'annual' ? 39 : 49) : (billingCycle === 'annual' ? 15 : 19));
+    const discountAmount = whopDiscountApplied ? Math.round(basePrice * 0.40) : 0;
+    const netAmount = Math.max(1, Math.round(basePrice - discountAmount));
+    const fee = Math.max(1, Math.round(netAmount * 0.035));
 
     const newTxn: StoredPayPalTransaction = {
       id: `PAYPAL-TXN-${Date.now()}-${Math.floor(Math.random() * 8999 + 1000)}`,
@@ -824,12 +824,11 @@ app.post('/api/paypal/create-order', (req, res) => {
     };
 
     const selectedPricing = tierPrices[String(plan)] || tierPrices['50'];
-    const basePrice = billingCycle === 'annual' ? selectedPricing.annual : selectedPricing.monthly;
+    const basePrice = Math.round(billingCycle === 'annual' ? selectedPricing.annual : selectedPricing.monthly);
 
-    // Apply 40% discount if subscriber of https://whop.com/@saulmente
-    const discountRate = whopDiscountApplied ? 0.40 : 0.0;
-    const discountAmount = parseFloat((basePrice * discountRate).toFixed(2));
-    const finalAmount = parseFloat((basePrice - discountAmount).toFixed(2));
+    // Apply 40% discount if subscriber of https://whop.com/@saulmente - Exact integer amounts
+    const discountAmount = whopDiscountApplied ? Math.round(basePrice * 0.40) : 0;
+    const finalAmount = Math.max(1, Math.round(basePrice - discountAmount));
 
     const orderId = `PAYPAL-ORD-${Date.now()}-${Math.floor(Math.random() * 9000 + 1000)}`;
 

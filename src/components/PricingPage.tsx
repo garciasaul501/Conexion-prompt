@@ -74,28 +74,29 @@ export const PricingPage: React.FC<PricingPageProps> = ({
     setWebhookLog((prev) => [`[${new Date().toLocaleTimeString()}] ${msg}`, ...prev.slice(0, 9)]);
   };
 
-  // Price calculator helpers supporting all tiers: 10, 30, 50, 100, 500, 1000
+  // Price calculator helpers supporting all tiers: 10, 30, 50, 100, 500, 1000 with exact whole dollars (no cents)
   const calculatePlanPrice = (planId: string, cycle: 'monthly' | 'annual') => {
     const tier = PRICING_TIERS.find((t) => t.id === planId) || PRICING_TIERS[3];
     if (tier.id === 'free') return { base: 0, final: 0, savings: 0, perPrompt: 0 };
-    const base = cycle === 'annual' ? tier.annualBasePrice : tier.monthlyBasePrice;
+    const base = Math.round(cycle === 'annual' ? tier.annualBasePrice : tier.monthlyBasePrice);
 
     if (!whopDiscountActive) {
       return {
         base,
         final: base,
         savings: 0,
-        perPrompt: parseFloat((base / tier.promptsCount).toFixed(2)),
+        perPrompt: Math.max(1, Math.round(base / tier.promptsCount)),
       };
     }
 
-    const discount = parseFloat((base * DISCOUNT_RATE).toFixed(2));
-    const final = parseFloat((base - discount).toFixed(2));
+    // Exact whole dollar payment without cents
+    const final = Math.max(1, Math.round(base * (1 - DISCOUNT_RATE)));
+    const savings = base - final;
     return {
       base,
       final,
-      savings: discount,
-      perPrompt: parseFloat((final / tier.promptsCount).toFixed(2)),
+      savings,
+      perPrompt: Math.max(1, Math.round(final / tier.promptsCount)),
     };
   };
 
@@ -270,18 +271,18 @@ export const PricingPage: React.FC<PricingPageProps> = ({
       
       {/* Header */}
       <div className="text-center space-y-4 max-w-2xl mx-auto">
-        <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-amber-50 text-amber-900 border border-amber-300 text-xs font-bold uppercase tracking-wider">
-          <DollarSign className="w-3.5 h-3.5 text-amber-500" />
-          <span>Monetización con Pagos PayPal & Descuento Whop</span>
+        <div className="inline-flex items-center space-x-2 px-3.5 py-1 rounded-full bg-amber-100 text-amber-950 border border-amber-300 text-xs font-black uppercase tracking-wider shadow-xs">
+          <DollarSign className="w-3.5 h-3.5 text-amber-600" />
+          <span>⭐ Planes & Suscribirse Ya • Pagos Exactos (Sin Centavos)</span>
         </div>
 
-        <h1 className="text-3xl sm:text-4xl font-extrabold text-slate-900 tracking-tight">
-          Paga con <span className="text-[#0070ba]">PayPal</span> y obtén descuento con <br className="hidden sm:inline" />
-          <span className="text-amber-500">Conexión Whop</span>
+        <h1 className="text-3xl sm:text-4xl font-black text-slate-900 tracking-tight">
+          Elige tu Plan y <span className="text-amber-500">Suscríbete Ya</span> con <br className="hidden sm:inline" />
+          <span className="text-[#0070ba]">PayPal</span> (40% OFF con Whop)
         </h1>
 
         <p className="text-slate-600 text-sm leading-relaxed">
-          Paga de forma 100% segura con tu saldo o tarjeta en PayPal. Suscríbete a mi conexión oficial en Whop (<a href={WHOP_PROFILE_URL} target="_blank" rel="noopener noreferrer" className="text-indigo-600 font-bold underline hover:text-indigo-800">whop.com/@saulmente</a>) y desbloquea <strong>40% de descuento directo</strong> en tu suscripción.
+          Pagos en cantidades exactas en dólares sin centavos. Selecciona tu plan mensual o anual con PayPal y desbloquea el Optimizador de Prompts IA y el catálogo completo inmediatamente.
         </p>
 
         {/* Billing Cycle Toggle */}
@@ -401,47 +402,6 @@ export const PricingPage: React.FC<PricingPageProps> = ({
             )}
           </div>
 
-        </div>
-      </div>
-
-      {/* PayPal Merchant Verification Card (Sanitized - No Personal Info) */}
-      <div className="relative overflow-hidden rounded-2xl bg-linear-to-r from-blue-900 via-indigo-950 to-slate-900 text-white p-5 sm:p-6 shadow-md border border-blue-800/50">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="flex items-center space-x-3.5">
-            <div className="w-11 h-11 rounded-xl bg-blue-600/30 border border-blue-400/40 flex items-center justify-center shrink-0">
-              <ShieldCheck className="w-6 h-6 text-blue-400" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-bold text-blue-300">
-                  Pasarela Oficial PayPal
-                </span>
-                <span className="inline-flex items-center gap-1 text-[10px] font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 px-2 py-0.5 rounded-full">
-                  <CheckCircle2 className="w-3 h-3 text-emerald-400" />
-                  Cuenta Verificada por PayPal
-                </span>
-              </div>
-              <h4 className="text-sm sm:text-base font-extrabold text-white mt-0.5">
-                Recepción Oficial de Pagos: <span className="text-amber-300 font-bold">Cuenta Verificada por PayPal (Premier Business)</span>
-              </h4>
-              <p className="text-xs text-slate-300 mt-0.5">
-                Procesamiento directo, comprobantes criptográficos y activación automática en tiempo real.
-              </p>
-            </div>
-          </div>
-
-          <div className="shrink-0">
-            {onGoToVerify && (
-              <button
-                onClick={onGoToVerify}
-                className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer"
-              >
-                <Receipt className="w-4 h-4" />
-                <span>Auditoría de Pagos Verificados</span>
-                <ArrowRight className="w-3.5 h-3.5" />
-              </button>
-            )}
-          </div>
         </div>
       </div>
 
@@ -723,62 +683,6 @@ export const PricingPage: React.FC<PricingPageProps> = ({
       </div>
 
 
-      {/* PayPal Subscription & Test Suite */}
-      <div className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 space-y-6 shadow-xs">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
-          <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 rounded-xl bg-amber-50 border border-amber-300 flex items-center justify-center shrink-0">
-              <Terminal className="w-5 h-5 text-amber-600" />
-            </div>
-            <div>
-              <h3 className="text-base font-bold text-slate-900">Consola de Integración PayPal & Webhooks</h3>
-              <p className="text-xs text-slate-500">Prueba la sincronización de pagos PayPal, capturas y eventos de membresía con Whop</p>
-            </div>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              onClick={() => handleSimulatePayPalWebhook('PAYMENT.CAPTURE.COMPLETED')}
-              className="px-3.5 py-1.5 rounded-xl bg-amber-50 text-amber-800 border border-amber-300 text-xs font-bold hover:bg-amber-100 transition-all flex items-center space-x-1"
-            >
-              <Play className="w-3.5 h-3.5" />
-              <span>Simular Pago Completado</span>
-            </button>
-            <button
-              onClick={() => handleSimulatePayPalWebhook('BILLING.SUBSCRIPTION.RENEWED')}
-              className="px-3.5 py-1.5 rounded-xl bg-indigo-50 text-indigo-700 border border-indigo-200 text-xs font-bold hover:bg-indigo-100 transition-all"
-            >
-              Simular Renovación
-            </button>
-            <button
-              onClick={() => handleSimulatePayPalWebhook('BILLING.SUBSCRIPTION.CANCELLED')}
-              className="px-3.5 py-1.5 rounded-xl bg-rose-50 text-rose-700 border border-rose-200 text-xs font-bold hover:bg-rose-100 transition-all"
-            >
-              Simular Cancelación
-            </button>
-          </div>
-        </div>
-
-        {/* Webhook Logs Terminal Output */}
-        <div className="bg-slate-900 rounded-2xl p-4 border border-slate-800 font-mono text-xs text-slate-100 space-y-1.5 min-h-[120px]">
-          <div className="text-[11px] text-slate-400 border-b border-slate-800 pb-2 mb-2 flex items-center justify-between">
-            <span>TERMINAL DE LOGS SERVIDOR (PAYPAL ORDERS & WHOP CONNECTIONS):</span>
-            <button onClick={() => setWebhookLog([])} className="hover:text-amber-400">
-              Limpiar Logs
-            </button>
-          </div>
-          {webhookLog.length > 0 ? (
-            webhookLog.map((log, i) => (
-              <div key={i} className="text-amber-300">
-                {log}
-              </div>
-            ))
-          ) : (
-            <div className="text-slate-500 italic">Haz clic en "Pagar con PayPal" o en los botones de prueba para inspeccionar las órdenes en vivo...</div>
-          )}
-        </div>
-      </div>
-
       {/* PAYPAL CHECKOUT MODAL */}
       {showPayPalModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
@@ -817,7 +721,7 @@ export const PricingPage: React.FC<PricingPageProps> = ({
 
                   <div className="flex justify-between text-slate-600">
                     <span>Precio Regular:</span>
-                    <span className="font-semibold">${currentPrice.base}.00 USD</span>
+                    <span className="font-semibold">${currentPrice.base} USD</span>
                   </div>
 
                   {whopDiscountActive && (
@@ -831,13 +735,13 @@ export const PricingPage: React.FC<PricingPageProps> = ({
                   )}
 
                   <div className="pt-2 border-t border-slate-200 flex justify-between items-baseline">
-                    <span className="font-black text-slate-900 text-sm">Total a Pagar hoy:</span>
+                    <span className="font-black text-slate-900 text-sm">Total a Pagar hoy (Exacto):</span>
                     <div className="text-right">
                       <span className="font-black text-amber-600 text-xl">
                         ${currentPrice.final} USD
                       </span>
                       <span className="block text-[10px] text-slate-500">
-                        {billingCycle === 'annual' ? 'por mes (facturado anualmente)' : 'por mes'}
+                        {billingCycle === 'annual' ? 'por mes (facturado anualmente)' : 'por mes (sin centavos)'}
                       </span>
                     </div>
                   </div>
@@ -864,7 +768,7 @@ export const PricingPage: React.FC<PricingPageProps> = ({
               <div className="flex items-center space-x-2">
                 <ShieldCheck className="w-4 h-4 text-blue-600 shrink-0" />
                 <span>
-                  Receptor verificado: <strong className="font-mono text-slate-900">garciasaul@hotmail.com</strong>
+                  Receptor oficial: <strong className="font-mono text-slate-900">Cuenta Verificada por PayPal</strong>
                 </span>
               </div>
               <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full">

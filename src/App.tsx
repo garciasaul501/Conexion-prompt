@@ -21,7 +21,7 @@ import {
 import { Prompt, UserSubscription, UserIntegration } from './types';
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<NavTabType>('gallery');
+  const [activeTab, setActiveTab] = useState<NavTabType>('pricing');
   const [categories] = useState(INITIAL_CATEGORIES);
   const [prompts, setPrompts] = useState<Prompt[]>(INITIAL_PROMPTS);
   const [savedPromptIds, setSavedPromptIds] = useState<string[]>(['p-1', 'p-3']);
@@ -256,7 +256,7 @@ export default function App() {
       />
 
       {/* Footer */}
-      <Footer onNavigateToVerify={() => setActiveTab('paypal-verify')} />
+      <Footer />
     </div>
   );
 }
