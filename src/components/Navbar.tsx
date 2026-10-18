@@ -20,7 +20,6 @@ export type NavTabType =
   | 'my-prompts'
   | 'analytics'
   | 'pricing'
-  | 'paypal-verify'
   | 'integrations'
   | 'architecture';
 

@@ -6,7 +6,6 @@ import { IdeaGeneratorPage } from './components/IdeaGeneratorPage';
 import { MyPromptsPage } from './components/MyPromptsPage';
 import { PromptExecutorModal } from './components/PromptExecutorModal';
 import { PricingPage } from './components/PricingPage';
-import { PayPalVerifierPage } from './components/PayPalVerifierPage';
 import { IntegrationsTab } from './components/IntegrationsTab';
 import { ArchitectureDocs } from './components/ArchitectureDocs';
 import { Footer } from './components/Footer';
@@ -406,24 +405,6 @@ export default function App() {
           <PricingPage
             subscription={subscription}
             onUpdateSubscription={handleUpdateSubscription}
-            onGoToVerify={() => setActiveTab('paypal-verify')}
-          />
-        )}
-
-        {activeTab === 'paypal-verify' && (
-          <PayPalVerifierPage
-            onGoToPricing={() => setActiveTab('pricing')}
-            onUnlockWithTransaction={(txn) => {
-              handleUpdateSubscription(txn.plan || 'pro', 'active', {
-                paypalTransactionId: txn.id,
-                paypalSubscriptionId: txn.subscriptionId,
-                whopDiscountApplied: txn.whopDiscountApplied,
-                whopUsername: txn.whopUsername,
-                discountPercent: txn.whopDiscountApplied ? 40 : 0,
-                paymentMethod: 'paypal',
-              });
-              setActiveTab('gallery');
-            }}
           />
         )}
 

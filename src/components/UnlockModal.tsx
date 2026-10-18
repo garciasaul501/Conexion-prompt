@@ -6,7 +6,7 @@ import {
   CheckCircle2,
   Sparkles,
   ExternalLink,
-  CreditCard,
+  Tag,
   X,
 } from 'lucide-react';
 import { UserSubscription } from '../types';
@@ -37,25 +37,22 @@ export const UnlockModal: React.FC<UnlockModalProps> = ({
   const isUnlocked = subscription.planType !== 'free';
 
   const handleInstantUnlockPro = () => {
-    onUpdateSubscription('pro', 'active', {
-      paypalPayerId: 'PAYPAL-PAYER-VERIFIED',
-      paypalSubscriptionId: `I-PP-SUB-ACTIVE-${Date.now()}`,
-      paypalTransactionId: `PAYPAL-TXN-ACTIVE-${Date.now()}`,
-      paymentMethod: 'paypal',
+    onUpdateSubscription('50', 'active', {
+      paymentMethod: 'whop',
+      monthlyPromptQuota: 50,
       whopDiscountApplied: true,
       whopUsername: '@saulmente',
       discountPercent: 40,
     });
-    setStatusMessage('¡Herramienta Desbloqueada al instante! Ahora tienes acceso completo.');
+    setStatusMessage('¡Herramienta Desbloqueada al instante! Plan 50 Prompts activo.');
   };
 
   const handleRelockFree = () => {
     onUpdateSubscription('free', 'active', {
-      paypalTransactionId: undefined,
-      paypalSubscriptionId: undefined,
+      monthlyPromptQuota: 5,
       whopDiscountApplied: false,
     });
-    setStatusMessage('Herramienta regresada a Modo Gratuito.');
+    setStatusMessage('Herramienta regresada a Modo Gratuito (5 prompts).');
   };
 
   return (
@@ -108,7 +105,7 @@ export const UnlockModal: React.FC<UnlockModalProps> = ({
           <p className="text-xs sm:text-sm text-slate-200 mt-2 leading-relaxed">
             {isUnlocked
               ? 'Tu suscripción está activa con acceso completo al Optimizador IA, Control de Versiones y descargas PDF.'
-              : 'Elige tu plan con pagos exactos en dólares (sin centavos) mediante Cuenta Verificada por PayPal.'}
+              : 'Elige tu plan con pago seguro en Whop y aprovecha el 40% de descuento con el código WHOP40.'}
           </p>
         </div>
 
@@ -139,11 +136,11 @@ export const UnlockModal: React.FC<UnlockModalProps> = ({
             <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 flex flex-col justify-between space-y-3">
               <div className="space-y-1">
                 <span className="text-xs font-extrabold text-slate-900 flex items-center space-x-1.5">
-                  <CreditCard className="w-4 h-4 text-blue-600" />
-                  <span>Cuenta Verificada por PayPal</span>
+                  <Tag className="w-4 h-4 text-amber-600" />
+                  <span>Checkout Seguro con Whop</span>
                 </span>
                 <p className="text-[11px] text-slate-600">
-                  Pagos exactos sin centavos y activación inmediata.
+                  Usa el código <strong className="font-mono">WHOP40</strong> para 40% de descuento y activa tu plan con tu correo.
                 </p>
               </div>
               <button
@@ -151,9 +148,9 @@ export const UnlockModal: React.FC<UnlockModalProps> = ({
                   onClose();
                   onNavigateToPricing();
                 }}
-                className="w-full py-2 px-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs cursor-pointer"
+                className="w-full py-2 px-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs cursor-pointer"
               >
-                Elegir Plan en PayPal
+                Ver Planes y Activar
               </button>
             </div>
 
@@ -163,7 +160,7 @@ export const UnlockModal: React.FC<UnlockModalProps> = ({
                   ⚡ Whop @saulmente (-40% OFF)
                 </span>
                 <p className="text-[11px] text-slate-600">
-                  40% de descuento exclusivo para miembros de la comunidad.
+                  40% de descuento de por vida para miembros de la comunidad.
                 </p>
               </div>
               <a
@@ -172,7 +169,7 @@ export const UnlockModal: React.FC<UnlockModalProps> = ({
                 rel="noopener noreferrer"
                 className="w-full py-2 px-3 rounded-xl bg-slate-900 hover:bg-slate-800 text-amber-300 font-bold text-xs flex items-center justify-center space-x-1.5 text-center"
               >
-                <span>Abrir Whop @saulmente</span>
+                <span>Mi comunidad en Whop</span>
                 <ExternalLink className="w-3.5 h-3.5" />
               </a>
             </div>
