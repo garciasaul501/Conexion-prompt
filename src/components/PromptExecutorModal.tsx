@@ -13,16 +13,24 @@ import {
   FileDown,
   Video,
   ExternalLink,
-  Share2,
-  CheckCircle2,
-  Send,
   RefreshCw,
   Edit2,
   AtSign,
   Lock,
-  Unlock,
+  GitBranch,
+  History,
+  Save,
+  Trash2,
+  GitCompare,
 } from 'lucide-react';
-import { Prompt, PromptExecutionResult, UserSubscription, UserIntegration } from '../types';
+import {
+  Prompt,
+  PromptVersion,
+  PromptVariable,
+  PromptExecutionResult,
+  UserSubscription,
+  UserIntegration,
+} from '../types';
 import { downloadPromptAsPdf } from '../utils/pdfExport';
 import { getDefaultThumbnailForCategory } from '../data/mockDatabase';
 
@@ -35,6 +43,19 @@ interface PromptExecutorModalProps {
   onExecutionSuccess?: () => void;
   integrations?: UserIntegration[];
   onSaveApiKey?: (provider: 'openai' | 'anthropic' | 'google_gemini' | 'tiktok', apiKey: string) => void;
+  onSavePromptVersion?: (
+    promptId: string,
+    versionInput: {
+      label: string;
+      templateContent: string;
+      variables: PromptVariable[];
+      variableValues: Record<string, string>;
+      recommendedModel: string;
+      notes?: string;
+    }
+  ) => PromptVersion | null;
+  onSwitchPromptVersion?: (promptId: string, versionId: string) => void;
+  onDeletePromptVersion?: (promptId: string, versionId: string) => void;
 }
 
 export const PromptExecutorModal: React.FC<PromptExecutorModalProps> = ({
@@ -46,16 +67,27 @@ export const PromptExecutorModal: React.FC<PromptExecutorModalProps> = ({
   onExecutionSuccess,
   integrations = [],
   onSaveApiKey,
+  onSavePromptVersion,
+  onSwitchPromptVersion,
+  onDeletePromptVersion,
 }) => {
   const [formValues, setFormValues] = useState<Record<string, string>>({});
   const [selectedModel, setSelectedModel] = useState<string>('gemini-3.8-flash');
+  const [editableTemplate, setEditableTemplate] = useState<string>('');
+  const [isEditingTemplate, setIsEditingTemplate] = useState<boolean>(false);
+  const [showSaveVersionForm, setShowSaveVersionForm] = useState<boolean>(false);
+  const [newVersionLabel, setNewVersionLabel] = useState<string>('');
+  const [newVersionNotes, setNewVersionNotes] = useState<string>('');
+  const [versionSavedBanner, setVersionSavedBanner] = useState<string | null>(null);
+  const [showVersionDiff, setShowVersionDiff] = useState<boolean>(false);
+
   const [isExecuting, setIsExecuting] = useState<boolean>(false);
   const [executionResult, setExecutionResult] = useState<PromptExecutionResult | null>(null);
   const [copiedResult, setCopiedResult] = useState<boolean>(false);
   const [copiedPrompt, setCopiedPrompt] = useState<boolean>(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [isHighDemandError, setIsHighDemandError] = useState<boolean>(false);
-  
+
   // TikTok State & Custom Account Management
   const connectedTikTok = integrations.find((i) => i.provider === 'tiktok')?.tiktokAccount;
   const [tiktokUsername, setTiktokUsername] = useState<string>(
@@ -75,27 +107,63 @@ export const PromptExecutorModal: React.FC<PromptExecutorModalProps> = ({
 
   useEffect(() => {
     if (prompt) {
+      const activeVersion =
+        (prompt.versions || []).find((v) => v.id === prompt.currentVersionId) ||
+        (prompt.versions && prompt.versions[prompt.versions.length - 1]);
+
       const initial: Record<string, string> = {};
       prompt.variables.forEach((v) => {
-        initial[v.name] = v.defaultValue || '';
+        initial[v.name] =
+          (activeVersion?.variableValues && activeVersion.variableValues[v.name]) ??
+          v.defaultValue ??
+          '';
       });
       setFormValues(initial);
-      setSelectedModel(prompt.recommendedModel || 'gemini-3.8-flash');
+      setSelectedModel(activeVersion?.recommendedModel || prompt.recommendedModel || 'gemini-3.8-flash');
+      setEditableTemplate(activeVersion?.templateContent || prompt.templateContent);
+      setIsEditingTemplate(false);
+      setShowSaveVersionForm(false);
       setExecutionResult(null);
       setErrorMsg(null);
       setIsHighDemandError(false);
     }
-  }, [prompt]);
+  }, [prompt?.id, prompt?.currentVersionId]);
 
   if (!prompt) return null;
 
-  const isProUser = subscription.planType === 'pro' || subscription.planType === 'enterprise';
+  const versions: PromptVersion[] =
+    prompt.versions && prompt.versions.length > 0
+      ? prompt.versions
+      : [
+          {
+            id: `${prompt.id}-v1`,
+            versionNumber: 1,
+            label: 'v1.0 • Configuración Base',
+            templateContent: prompt.templateContent,
+            variables: prompt.variables,
+            variableValues: formValues,
+            recommendedModel: prompt.recommendedModel,
+            notes: 'Versión original del prompt',
+            createdAt: prompt.createdAt || '2026-03-01',
+          },
+        ];
+
+  const currentVersion =
+    versions.find((v) => v.id === prompt.currentVersionId) || versions[versions.length - 1];
+  const previousVersion =
+    versions.length > 1
+      ? versions[Math.max(0, versions.findIndex((v) => v.id === currentVersion.id) - 1)]
+      : null;
+
+  const isProUser = subscription.planType !== 'free';
   const creditsRemaining = Math.max(0, subscription.monthlyPromptQuota - subscription.usedPromptsThisMonth);
   const isOutOfCredits = !isProUser && creditsRemaining <= 0;
   const isPromptLocked = (prompt.isPremium && !isProUser) || isOutOfCredits;
 
+  const activeTemplateSource = isEditingTemplate ? editableTemplate : prompt.templateContent;
+
   const compiledPromptText = (() => {
-    let result = prompt.templateContent;
+    let result = activeTemplateSource;
     Object.entries(formValues).forEach(([key, val]) => {
       const regex = new RegExp(`\\{\\{\\s*${key}\\s*\\}\\}`, 'g');
       result = result.replace(regex, val || `{{${key}}}`);
@@ -105,6 +173,64 @@ export const PromptExecutorModal: React.FC<PromptExecutorModalProps> = ({
 
   const handleInputChange = (varName: string, value: string) => {
     setFormValues((prev) => ({ ...prev, [varName]: value }));
+  };
+
+  const handleSelectVersion = (ver: PromptVersion) => {
+    setFormValues(ver.variableValues || {});
+    setSelectedModel(ver.recommendedModel || 'gemini-3.8-flash');
+    setEditableTemplate(ver.templateContent);
+    if (onSwitchPromptVersion) {
+      onSwitchPromptVersion(prompt.id, ver.id);
+    }
+    setVersionSavedBanner(`Cambiado a ${ver.label}`);
+    setTimeout(() => setVersionSavedBanner(null), 2500);
+  };
+
+  const handleCreateNewVersion = () => {
+    if (!onSavePromptVersion) return;
+
+    // Extract any newly added {{variable}} placeholders from editableTemplate
+    const regex = /\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g;
+    const detectedNames = new Set<string>();
+    let match: RegExpExecArray | null;
+    while ((match = regex.exec(editableTemplate)) !== null) {
+      detectedNames.add(match[1]);
+    }
+
+    const mergedVariables: PromptVariable[] = [...prompt.variables];
+    detectedNames.forEach((name) => {
+      if (!mergedVariables.some((v) => v.name === name)) {
+        mergedVariables.push({
+          name,
+          label: name.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()),
+          defaultValue: formValues[name] || '',
+          placeholder: `Valor para ${name}`,
+          type: 'text',
+        });
+      }
+    });
+
+    const nextNum = versions.reduce((m, v) => Math.max(m, v.versionNumber), 0) + 1;
+    const finalLabel =
+      newVersionLabel.trim() || `v${nextNum}.0 • Iteración (${selectedModel})`;
+
+    const created = onSavePromptVersion(prompt.id, {
+      label: finalLabel,
+      templateContent: editableTemplate,
+      variables: mergedVariables,
+      variableValues: { ...formValues },
+      recommendedModel: selectedModel,
+      notes: newVersionNotes.trim() || `Variables ajustadas y modelo ${selectedModel}`,
+    });
+
+    setNewVersionLabel('');
+    setNewVersionNotes('');
+    setShowSaveVersionForm(false);
+    setIsEditingTemplate(false);
+    if (created) {
+      setVersionSavedBanner(`¡Guardada ${created.label}!`);
+      setTimeout(() => setVersionSavedBanner(null), 3000);
+    }
   };
 
   const handleSaveTikTokUsername = () => {
@@ -127,7 +253,6 @@ export const PromptExecutorModal: React.FC<PromptExecutorModalProps> = ({
       return;
     }
 
-    // Safely extract string model only, avoiding React SyntheticEvent or other objects
     const actualOverrideModel =
       typeof overrideModel === 'string' && overrideModel.trim().length > 0
         ? overrideModel.trim()
@@ -144,7 +269,6 @@ export const PromptExecutorModal: React.FC<PromptExecutorModalProps> = ({
     setExecutionResult(null);
 
     try {
-      // Ensure variables are cleanly sanitized string primitives to prevent circular structures in JSON.stringify
       const sanitizedVariables: Record<string, string> = {};
       if (formValues && typeof formValues === 'object') {
         Object.entries(formValues).forEach(([k, v]) => {
@@ -153,7 +277,7 @@ export const PromptExecutorModal: React.FC<PromptExecutorModalProps> = ({
       }
 
       const requestPayload = {
-        templateContent: String(prompt.templateContent || ''),
+        templateContent: String(activeTemplateSource || ''),
         variables: sanitizedVariables,
         model: String(modelToUse),
       };
@@ -295,6 +419,10 @@ export const PromptExecutorModal: React.FC<PromptExecutorModalProps> = ({
             <div>
               <div className="flex items-center flex-wrap gap-2">
                 <h2 className="text-base font-bold text-slate-900">{prompt.title}</h2>
+                <span className="inline-flex items-center space-x-1 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-indigo-100 text-indigo-800 border border-indigo-300">
+                  <GitBranch className="w-3 h-3" />
+                  <span>v{currentVersion.versionNumber}.0 ({versions.length} {versions.length === 1 ? 'versión' : 'versiones'})</span>
+                </span>
                 {prompt.isPremium && (
                   <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-100 text-amber-800 border border-amber-300">
                     PRO
@@ -327,6 +455,179 @@ export const PromptExecutorModal: React.FC<PromptExecutorModalProps> = ({
         {/* Content Body */}
         <div className="p-6 overflow-y-auto space-y-6 flex-1">
           
+          {/* VERSION CONTROL PANEL (Save & Switch Prompt Iterations) */}
+          <div className="p-4 rounded-2xl bg-gradient-to-r from-indigo-50/90 via-white to-amber-50/70 border border-indigo-200 space-y-3 shadow-xs">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex items-center space-x-2.5">
+                <div className="w-9 h-9 rounded-xl bg-indigo-600 text-white flex items-center justify-center shrink-0 shadow-xs">
+                  <History className="w-4 h-4" />
+                </div>
+                <div>
+                  <div className="flex items-center space-x-2">
+                    <span className="text-xs font-black uppercase tracking-wider text-indigo-950">
+                      Control de Versiones del Prompt
+                    </span>
+                    {versionSavedBanner && (
+                      <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300 text-[10px] font-extrabold animate-fade-in">
+                        ✓ {versionSavedBanner}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-[11px] text-slate-600">
+                    Guarda iteraciones de tu plantilla, variables y modelo IA y cambia entre ellas en un clic.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                {versions.length > 1 && (
+                  <button
+                    onClick={() => setShowVersionDiff(!showVersionDiff)}
+                    className={`inline-flex items-center space-x-1 px-3 py-1.5 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
+                      showVersionDiff
+                        ? 'bg-indigo-600 text-white border-indigo-600'
+                        : 'bg-white hover:bg-slate-50 text-indigo-700 border-indigo-200'
+                    }`}
+                  >
+                    <GitCompare className="w-3.5 h-3.5" />
+                    <span>{showVersionDiff ? 'Ocultar Diff' : 'Comparar Iteraciones'}</span>
+                  </button>
+                )}
+
+                <button
+                  onClick={() => setShowSaveVersionForm(!showSaveVersionForm)}
+                  className="inline-flex items-center space-x-1.5 px-3.5 py-2 rounded-xl bg-gradient-to-r from-amber-400 via-yellow-300 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-slate-950 font-black text-xs border border-amber-400 shadow-xs transition-all cursor-pointer"
+                >
+                  <Save className="w-3.5 h-3.5 text-slate-950" />
+                  <span>+ Guardar Nueva Versión</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Version Switcher Pills */}
+            <div className="flex items-center flex-wrap gap-2 pt-1">
+              {versions.map((ver) => {
+                const isSelected = ver.id === currentVersion.id;
+                return (
+                  <div
+                    key={ver.id}
+                    className={`inline-flex items-center rounded-xl border text-xs transition-all ${
+                      isSelected
+                        ? 'bg-indigo-600 text-white border-indigo-600 font-bold shadow-xs'
+                        : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200 font-semibold'
+                    }`}
+                  >
+                    <button
+                      onClick={() => handleSelectVersion(ver)}
+                      className="px-3 py-1.5 flex items-center space-x-1.5 cursor-pointer"
+                      title={ver.notes || ver.label}
+                    >
+                      <GitBranch className={`w-3 h-3 ${isSelected ? 'text-amber-300' : 'text-indigo-500'}`} />
+                      <span>{ver.label}</span>
+                      <span className={`text-[10px] opacity-75 ${isSelected ? 'text-indigo-100' : 'text-slate-400'}`}>
+                        ({ver.createdAt})
+                      </span>
+                    </button>
+                    {versions.length > 1 && onDeletePromptVersion && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onDeletePromptVersion(prompt.id, ver.id);
+                        }}
+                        className={`pr-2 pl-1 py-1.5 hover:text-rose-400 transition-colors cursor-pointer ${
+                          isSelected ? 'text-indigo-200' : 'text-slate-400'
+                        }`}
+                        title="Eliminar esta versión"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Save New Version Drawer */}
+            {showSaveVersionForm && (
+              <div className="p-4 rounded-xl bg-white border border-indigo-200 space-y-3 animate-fade-in">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                      Nombre de la Iteración / Versión:
+                    </label>
+                    <input
+                      type="text"
+                      value={newVersionLabel}
+                      onChange={(e) => setNewVersionLabel(e.target.value)}
+                      placeholder={`Ej: v${versions.length + 1}.0 • Enfoque Cierre B2B`}
+                      className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-900 focus:bg-white focus:outline-none focus:border-indigo-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                      Notas del cambio (opcional):
+                    </label>
+                    <input
+                      type="text"
+                      value={newVersionNotes}
+                      onChange={(e) => setNewVersionNotes(e.target.value)}
+                      placeholder="Ej: Ajusté tono persuasivo y variables de cliente"
+                      className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-900 focus:bg-white focus:outline-none focus:border-indigo-500"
+                    />
+                  </div>
+                </div>
+                <div className="flex items-center justify-end space-x-2">
+                  <button
+                    onClick={() => setShowSaveVersionForm(false)}
+                    className="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold cursor-pointer"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    onClick={handleCreateNewVersion}
+                    className="px-4 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-extrabold shadow-xs cursor-pointer flex items-center space-x-1.5"
+                  >
+                    <Save className="w-3.5 h-3.5" />
+                    <span>Guardar Iteración v{versions.length + 1}.0</span>
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Side-by-Side Diff View */}
+            {showVersionDiff && previousVersion && (
+              <div className="p-3.5 rounded-xl bg-slate-900 text-slate-100 space-y-2 text-xs animate-fade-in">
+                <div className="flex items-center justify-between border-b border-slate-700 pb-2">
+                  <span className="font-bold text-amber-300 flex items-center space-x-1.5">
+                    <GitCompare className="w-4 h-4" />
+                    <span>Comparación de Iteraciones: {previousVersion.label} vs {currentVersion.label}</span>
+                  </span>
+                  <span className="text-[10px] text-slate-400">
+                    Modelo: {previousVersion.recommendedModel} → {currentVersion.recommendedModel}
+                  </span>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div className="p-2.5 rounded-lg bg-slate-800/90 border border-slate-700 space-y-1">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase block">
+                      Anterior: {previousVersion.label}
+                    </span>
+                    <pre className="text-[11px] font-mono text-slate-300 whitespace-pre-wrap max-h-36 overflow-y-auto">
+                      {previousVersion.templateContent}
+                    </pre>
+                  </div>
+                  <div className="p-2.5 rounded-lg bg-indigo-950/80 border border-indigo-500/40 space-y-1">
+                    <span className="text-[10px] font-bold text-amber-300 uppercase block">
+                      Activa: {currentVersion.label}
+                    </span>
+                    <pre className="text-[11px] font-mono text-emerald-200 whitespace-pre-wrap max-h-36 overflow-y-auto">
+                      {currentVersion.templateContent}
+                    </pre>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
           {/* Top Controls & Model Picker */}
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4 rounded-2xl bg-slate-50 border border-slate-200">
             <div className="flex items-center space-x-3">
@@ -410,17 +711,29 @@ export const PromptExecutorModal: React.FC<PromptExecutorModalProps> = ({
             </div>
           )}
 
-          {/* SECTION 2: Always-Visible Compiled Prompt View */}
+          {/* SECTION 2: Always-Visible Compiled Prompt View + Template Iteration Editor */}
           <div className="space-y-2.5">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div className="flex items-center space-x-2">
                 <Code2 className="w-4 h-4 text-indigo-600" />
                 <span className="text-xs font-extrabold uppercase tracking-wider text-slate-800">
-                  2. Prompt Completo Listo para Usar o Descargar
+                  2. {isEditingTemplate ? 'Editar Plantilla para Nueva Versión' : 'Prompt Completo Listo para Usar o Descargar'}
                 </span>
               </div>
 
-              <div className="flex items-center space-x-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  onClick={() => setIsEditingTemplate(!isEditingTemplate)}
+                  className={`inline-flex items-center space-x-1 px-3 py-1.5 rounded-xl text-xs font-bold border transition-colors cursor-pointer ${
+                    isEditingTemplate
+                      ? 'bg-indigo-600 text-white border-indigo-600'
+                      : 'bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border-indigo-200'
+                  }`}
+                >
+                  <Edit2 className="w-3.5 h-3.5" />
+                  <span>{isEditingTemplate ? 'Ver Compilado' : 'Editar Plantilla'}</span>
+                </button>
+
                 <button
                   onClick={() => copyToClipboard(compiledPromptText, false)}
                   className="inline-flex items-center space-x-1 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-xs text-slate-800 font-bold transition-colors cursor-pointer"
@@ -439,9 +752,30 @@ export const PromptExecutorModal: React.FC<PromptExecutorModalProps> = ({
               </div>
             </div>
 
-            <pre className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-mono text-slate-800 whitespace-pre-wrap leading-relaxed max-h-60 overflow-y-auto">
-              {compiledPromptText}
-            </pre>
+            {isEditingTemplate ? (
+              <div className="space-y-2">
+                <textarea
+                  rows={7}
+                  value={editableTemplate}
+                  onChange={(e) => setEditableTemplate(e.target.value)}
+                  className="w-full p-4 bg-white border-2 border-indigo-300 rounded-2xl text-xs font-mono text-slate-900 focus:outline-none focus:border-indigo-600 leading-relaxed"
+                  placeholder="Edita la estructura del prompt... Usa {{variable}} para variables dinámicas."
+                />
+                <div className="flex items-center justify-between text-[11px] text-slate-500">
+                  <span>Puedes añadir nuevas variables escribiendo <code className="font-mono text-indigo-600">{'{{nueva_variable}}'}</code></span>
+                  <button
+                    onClick={() => setShowSaveVersionForm(true)}
+                    className="px-3 py-1 rounded-lg bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-xs cursor-pointer"
+                  >
+                    Guardar Cambios como Nueva Versión
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <pre className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-mono text-slate-800 whitespace-pre-wrap leading-relaxed max-h-60 overflow-y-auto">
+                {compiledPromptText}
+              </pre>
+            )}
           </div>
 
           {/* TikTok Account Quick Selector / Configuration Bar */}
@@ -499,18 +833,18 @@ export const PromptExecutorModal: React.FC<PromptExecutorModalProps> = ({
 
           {/* Locked Prompt Notice */}
           {isPromptLocked && (
-            <div className="p-4 rounded-2xl bg-amber-500/15 border border-amber-500/30 text-amber-200 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="p-4 rounded-2xl bg-amber-50 border border-amber-300 text-amber-950 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div className="flex items-center space-x-2.5">
-                <Lock className="w-4 h-4 text-amber-400 shrink-0" />
+                <Lock className="w-4 h-4 text-amber-600 shrink-0" />
                 <span>
-                  <strong>Herramienta Bloqueada:</strong> La ejecución de este prompt con Gemini 3.8 Flash requiere suscripción Pro o compra con PayPal (garciasaul@hotmail.com). Descuento del 40% con Whop (@saulmente).
+                  <strong>Herramienta Bloqueada:</strong> La ejecución de este prompt requiere suscripción activa con PayPal (Cuenta Verificada por PayPal).
                 </span>
               </div>
               <button
-                onClick={onOpenUnlockModal || onUpgradeClick}
-                className="px-3.5 py-1.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-xs shrink-0 cursor-pointer shadow-xs transition-transform hover:scale-105"
+                onClick={onUpgradeClick}
+                className="px-4 py-2 rounded-xl bg-gradient-to-r from-amber-400 via-yellow-300 to-amber-500 text-slate-950 font-black text-xs shrink-0 cursor-pointer shadow-xs transition-transform hover:scale-105 border border-amber-400"
               >
-                Desbloquear Ahora
+                Planes y Suscribirte
               </button>
             </div>
           )}

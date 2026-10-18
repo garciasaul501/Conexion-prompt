@@ -17,6 +17,18 @@ export interface PromptVariable {
   options?: string[];
 }
 
+export interface PromptVersion {
+  id: string;
+  versionNumber: number;
+  label: string;
+  templateContent: string;
+  variables: PromptVariable[];
+  variableValues: Record<string, string>;
+  recommendedModel: string;
+  notes?: string;
+  createdAt: string;
+}
+
 export interface Prompt {
   id: string;
   title: string;
@@ -33,6 +45,8 @@ export interface Prompt {
   rating: number;
   tags: string[];
   createdAt: string;
+  versions?: PromptVersion[];
+  currentVersionId?: string;
 }
 
 export interface UserProfile {

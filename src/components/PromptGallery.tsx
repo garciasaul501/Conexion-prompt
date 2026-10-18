@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import {
   Search,
   Sparkles,
@@ -13,6 +13,7 @@ import {
   EyeOff,
   Lock,
   Unlock,
+  X,
 } from 'lucide-react';
 import { PromptCategory, Prompt, UserSubscription } from '../types';
 import { PromptCard } from './PromptCard';
@@ -29,6 +30,7 @@ interface PromptGalleryProps {
   onUpgradeClick: () => void;
   onOpenUnlockModal?: () => void;
   onAddPromptToLibrary: (prompt: Prompt) => void;
+  onSwitchPromptVersion?: (promptId: string, versionId: string) => void;
 }
 
 export const PromptGallery: React.FC<PromptGalleryProps> = ({
@@ -41,15 +43,29 @@ export const PromptGallery: React.FC<PromptGalleryProps> = ({
   onUpgradeClick,
   onOpenUnlockModal,
   onAddPromptToLibrary,
+  onSwitchPromptVersion,
 }) => {
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>('cat-all');
   const [searchQuery, setSearchQuery] = useState<string>('');
+  const [searchScope, setSearchScope] = useState<'all' | 'title' | 'description'>('all');
   const [pricingFilter, setPricingFilter] = useState<'all' | 'free' | 'pro'>('all');
   const [modelFilter, setModelFilter] = useState<string>('all');
   const [onlySaved, setOnlySaved] = useState<boolean>(false);
   const [sortBy, setSortBy] = useState<'uses' | 'rating' | 'newest'>('uses');
   const [isIdeaModalOpen, setIsIdeaModalOpen] = useState<boolean>(false);
   const [expandAllPrompts, setExpandAllPrompts] = useState<boolean>(false);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        searchInputRef.current?.focus();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   const isProUser = subscription.planType === 'pro' || subscription.planType === 'enterprise';
   const remainingCredits = Math.max(0, subscription.monthlyPromptQuota - subscription.usedPromptsThisMonth);
@@ -73,11 +89,18 @@ export const PromptGallery: React.FC<PromptGalleryProps> = ({
           return false;
         }
         if (searchQuery.trim()) {
-          const q = searchQuery.toLowerCase();
+          const q = searchQuery.trim().toLowerCase();
           const matchTitle = p.title.toLowerCase().includes(q);
           const matchDesc = p.description.toLowerCase().includes(q);
           const matchTags = p.tags.some((t) => t.toLowerCase().includes(q));
-          if (!matchTitle && !matchDesc && !matchTags) return false;
+
+          if (searchScope === 'title') {
+            if (!matchTitle) return false;
+          } else if (searchScope === 'description') {
+            if (!matchDesc) return false;
+          } else {
+            if (!matchTitle && !matchDesc && !matchTags) return false;
+          }
         }
         if (pricingFilter === 'free' && p.isPremium) return false;
         if (pricingFilter === 'pro' && !p.isPremium) return false;
@@ -91,7 +114,9 @@ export const PromptGallery: React.FC<PromptGalleryProps> = ({
         if (sortBy === 'rating') return b.rating - a.rating;
         return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
       });
-  }, [prompts, selectedCategoryId, searchQuery, pricingFilter, modelFilter, onlySaved, sortBy, savedPromptIds]);
+  }, [prompts, selectedCategoryId, searchQuery, searchScope, pricingFilter, modelFilter, onlySaved, sortBy, savedPromptIds]);
+
+  const quickSearchTerms = ['Ventas', 'Agentes IA', 'TikTok', 'SEO', 'Copywriting', 'WhatsApp', 'Código'];
 
   return (
     <div className="space-y-8 pb-12">
@@ -110,7 +135,7 @@ export const PromptGallery: React.FC<PromptGalleryProps> = ({
 
             <div className="inline-flex items-center space-x-1.5 px-3 py-1 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200 text-xs font-bold">
               <Zap className="w-3.5 h-3.5 text-amber-500" />
-              <span>{isProUser ? 'Suscripción PRO Activa' : `Empieza Gratis: ${remainingCredits} de 10 créditos disponibles`}</span>
+              <span>{isProUser ? 'Suscripción PRO Activa' : `Empieza Gratis: ${remainingCredits} de ${subscription.monthlyPromptQuota} créditos disponibles`}</span>
             </div>
 
             {!isProUser && (
@@ -189,20 +214,105 @@ export const PromptGallery: React.FC<PromptGalleryProps> = ({
         </div>
       </div>
 
-      {/* Search & Filter Controls */}
-      <div className="space-y-4">
+      {/* Real-Time Search & Filter Controls */}
+      <div className="bg-white border border-slate-200 rounded-3xl p-5 sm:p-6 shadow-xs space-y-4">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
           
-          {/* Search Input */}
+          {/* Real-Time Search Input Bar */}
           <div className="relative flex-1">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-indigo-500 pointer-events-none" />
             <input
+              ref={searchInputRef}
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Buscar por título, palabra clave o #tag (ej: SEO, TypeScript, Copywriting)..."
-              className="w-full pl-12 pr-4 py-3 bg-white border border-slate-200 rounded-2xl text-slate-900 placeholder-slate-400 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 text-sm shadow-xs transition-all"
+              placeholder={
+                searchScope === 'title'
+                  ? 'Buscar en tiempo real por título del prompt...'
+                  : searchScope === 'description'
+                  ? 'Buscar en tiempo real por descripción del prompt...'
+                  : 'Buscar prompts en tiempo real por título, descripción o etiqueta (⌘K)...'
+              }
+              aria-label="Buscar prompts por título o descripción"
+              className="w-full pl-12 pr-36 py-3.5 bg-slate-50 focus:bg-white border-2 border-slate-200 rounded-2xl text-slate-900 placeholder-slate-400 focus:outline-none focus:border-indigo-600 focus:ring-4 focus:ring-indigo-500/10 text-sm font-medium transition-all"
             />
+
+            <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center space-x-1.5">
+              {searchQuery && (
+                <button
+                  onClick={() => {
+                    setSearchQuery('');
+                    searchInputRef.current?.focus();
+                  }}
+                  className="p-1.5 rounded-lg bg-slate-200/80 hover:bg-slate-300 text-slate-700 transition-colors cursor-pointer"
+                  title="Limpiar búsqueda"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+              <span className="px-2.5 py-1 rounded-lg bg-indigo-50 text-indigo-700 border border-indigo-200 text-[11px] font-extrabold">
+                {filteredPrompts.length} / {prompts.length}
+              </span>
+            </div>
+          </div>
+
+          {/* Search Scope Selector (All / Title / Description) */}
+          <div className="flex items-center bg-slate-100 border border-slate-200 p-1 rounded-xl text-xs font-bold shrink-0">
+            <button
+              onClick={() => setSearchScope('all')}
+              className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
+                searchScope === 'all'
+                  ? 'bg-white text-indigo-700 shadow-xs font-extrabold'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              Título & Descripción
+            </button>
+            <button
+              onClick={() => setSearchScope('title')}
+              className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
+                searchScope === 'title'
+                  ? 'bg-white text-indigo-700 shadow-xs font-extrabold'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              Solo Título
+            </button>
+            <button
+              onClick={() => setSearchScope('description')}
+              className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
+                searchScope === 'description'
+                  ? 'bg-white text-indigo-700 shadow-xs font-extrabold'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              Solo Descripción
+            </button>
+          </div>
+        </div>
+
+        {/* Quick Search Chips & Secondary Controls Row */}
+        <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-3 pt-2 border-t border-slate-100">
+          <div className="flex items-center flex-wrap gap-1.5">
+            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mr-1">
+              Búsqueda rápida:
+            </span>
+            {quickSearchTerms.map((term) => {
+              const isSelected = searchQuery.toLowerCase() === term.toLowerCase();
+              return (
+                <button
+                  key={term}
+                  onClick={() => setSearchQuery(isSelected ? '' : term)}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                    isSelected
+                      ? 'bg-indigo-600 text-white shadow-xs'
+                      : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+                  }`}
+                >
+                  {term}
+                </button>
+              );
+            })}
           </div>
 
           {/* Secondary Controls */}
@@ -329,7 +439,7 @@ export const PromptGallery: React.FC<PromptGalleryProps> = ({
             <div>
               <span className="text-xs font-black uppercase tracking-wider block">Herramienta Bloqueada en Modo Gratuito</span>
               <span className="text-xs font-semibold text-slate-900">
-                Los prompts PRO y la ejecución avanzada con Gemini 3.8 Flash están bloqueados hasta tener la suscripción o comprar con PayPal (garciasaul@hotmail.com).
+                Los prompts PRO y la ejecución avanzada con Gemini 3.8 Flash están bloqueados hasta tener la suscripción o comprar con PayPal (Cuenta Verificada por PayPal).
               </span>
             </div>
           </div>
@@ -355,6 +465,7 @@ export const PromptGallery: React.FC<PromptGalleryProps> = ({
               onExecute={handleCardExecute}
               isProUser={isProUser}
               defaultExpanded={expandAllPrompts}
+              onSwitchVersion={onSwitchPromptVersion}
             />
           ))}
         </div>
@@ -377,6 +488,7 @@ export const PromptGallery: React.FC<PromptGalleryProps> = ({
               onClick={() => {
                 setSelectedCategoryId('cat-all');
                 setSearchQuery('');
+                setSearchScope('all');
                 setPricingFilter('all');
                 setModelFilter('all');
                 setOnlySaved(false);

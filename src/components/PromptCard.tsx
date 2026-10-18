@@ -12,6 +12,7 @@ import {
   Copy,
   Check,
   Lock,
+  GitBranch,
 } from 'lucide-react';
 import { Prompt } from '../types';
 import { downloadPromptAsPdf } from '../utils/pdfExport';
@@ -24,6 +25,7 @@ interface PromptCardProps {
   onExecute: (prompt: Prompt) => void;
   isProUser?: boolean;
   defaultExpanded?: boolean;
+  onSwitchVersion?: (promptId: string, versionId: string) => void;
 }
 
 export const PromptCard: React.FC<PromptCardProps> = ({
@@ -33,6 +35,7 @@ export const PromptCard: React.FC<PromptCardProps> = ({
   onExecute,
   isProUser = false,
   defaultExpanded = false,
+  onSwitchVersion,
 }) => {
   const [showPromptPreview, setShowPromptPreview] = useState<boolean>(defaultExpanded);
   const [copied, setCopied] = useState<boolean>(false);
@@ -41,6 +44,11 @@ export const PromptCard: React.FC<PromptCardProps> = ({
   React.useEffect(() => {
     setShowPromptPreview(defaultExpanded);
   }, [defaultExpanded]);
+
+  const versions = prompt.versions || [];
+  const activeVersion =
+    versions.find((v) => v.id === prompt.currentVersionId) || versions[versions.length - 1];
+  const versionNumber = activeVersion ? activeVersion.versionNumber : 1;
 
   const getModelBadge = (model: string) => {
     switch (model) {
@@ -176,6 +184,33 @@ export const PromptCard: React.FC<PromptCardProps> = ({
           {prompt.description}
         </p>
 
+        {/* Version Switcher Row if multiple versions exist */}
+        {versions.length > 1 && (
+          <div className="mb-3 p-2 rounded-xl bg-indigo-50/70 border border-indigo-200/80 flex items-center justify-between gap-2">
+            <div className="flex items-center space-x-1.5 text-[11px] font-bold text-indigo-900">
+              <GitBranch className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+              <span>Iteración:</span>
+            </div>
+            <select
+              value={activeVersion?.id || ''}
+              onChange={(e) => {
+                e.stopPropagation();
+                if (onSwitchVersion) {
+                  onSwitchVersion(prompt.id, e.target.value);
+                }
+              }}
+              onClick={(e) => e.stopPropagation()}
+              className="bg-white border border-indigo-200 rounded-lg px-2 py-1 text-[11px] font-bold text-indigo-800 focus:outline-none focus:border-indigo-500 flex-1 max-w-[190px]"
+            >
+              {versions.map((v) => (
+                <option key={v.id} value={v.id}>
+                  {v.label}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+
         {/* Quick View Prompt Toggle Bar */}
         <div className="mb-3">
           <div className="flex items-center gap-2">
@@ -224,7 +259,7 @@ export const PromptCard: React.FC<PromptCardProps> = ({
             <div className="mt-3 p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-2.5 animate-fade-in">
               <div className="flex items-center justify-between border-b border-slate-200 pb-1.5">
                 <span className="text-[11px] font-extrabold uppercase tracking-wider text-indigo-700">
-                  Plantilla del Prompt:
+                  Plantilla (v{versionNumber}.0):
                 </span>
                 <span className="text-[10px] font-semibold text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
                   {prompt.variables.length} variables editables
@@ -257,6 +292,10 @@ export const PromptCard: React.FC<PromptCardProps> = ({
           <div className="flex items-center space-x-1">
             <Layers className="w-3.5 h-3.5 text-indigo-500" />
             <span>{prompt.variables.length} vars</span>
+          </div>
+          <div className="flex items-center space-x-1 text-indigo-700 font-bold" title="Versiones guardadas del prompt">
+            <GitBranch className="w-3.5 h-3.5 text-indigo-500" />
+            <span>v{versionNumber}.0</span>
           </div>
         </div>
 

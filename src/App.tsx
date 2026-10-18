@@ -18,13 +18,63 @@ import {
   INITIAL_SUBSCRIPTION,
   INITIAL_INTEGRATIONS,
 } from './data/mockDatabase';
-import { Prompt, UserSubscription, UserIntegration } from './types';
+import { Prompt, PromptVersion, PromptVariable, UserSubscription, UserIntegration } from './types';
+
+function ensurePromptHasInitialVersion(p: Prompt): Prompt {
+  if (p.versions && p.versions.length > 0) {
+    return {
+      ...p,
+      currentVersionId: p.currentVersionId || p.versions[p.versions.length - 1].id,
+    };
+  }
+  const defaultValues: Record<string, string> = {};
+  (p.variables || []).forEach((v) => {
+    defaultValues[v.name] = v.defaultValue || '';
+  });
+  const initialVersion: PromptVersion = {
+    id: `${p.id}-v1`,
+    versionNumber: 1,
+    label: 'v1.0 • Configuración Base',
+    templateContent: p.templateContent,
+    variables: p.variables || [],
+    variableValues: defaultValues,
+    recommendedModel: p.recommendedModel || 'gemini-3.8-flash',
+    notes: 'Versión original del prompt',
+    createdAt: p.createdAt || '2026-03-01',
+  };
+  return {
+    ...p,
+    versions: [initialVersion],
+    currentVersionId: initialVersion.id,
+  };
+}
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<NavTabType>('pricing');
   const [categories] = useState(INITIAL_CATEGORIES);
-  const [prompts, setPrompts] = useState<Prompt[]>(INITIAL_PROMPTS);
-  const [savedPromptIds, setSavedPromptIds] = useState<string[]>(['p-1', 'p-3']);
+  const [prompts, setPrompts] = useState<Prompt[]>(() => {
+    try {
+      const saved = localStorage.getItem('saul_prompts_catalog_v2');
+      if (saved) {
+        const parsed: Prompt[] = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed.map(ensurePromptHasInitialVersion);
+        }
+      }
+    } catch (e) {
+      console.error(e);
+    }
+    return INITIAL_PROMPTS.map(ensurePromptHasInitialVersion);
+  });
+  const [savedPromptIds, setSavedPromptIds] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem('saul_saved_prompt_ids');
+      if (saved) return JSON.parse(saved);
+    } catch (e) {
+      console.error(e);
+    }
+    return ['p-1', 'p-3'];
+  });
   const [subscription, setSubscription] = useState<UserSubscription>(() => {
     try {
       const saved = localStorage.getItem('saul_prompts_subscription');
@@ -38,17 +88,145 @@ export default function App() {
   const [executingPrompt, setExecutingPrompt] = useState<Prompt | null>(null);
   const [isUnlockModalOpen, setIsUnlockModalOpen] = useState<boolean>(false);
 
+  const persistPrompts = (updatedList: Prompt[]) => {
+    try {
+      localStorage.setItem('saul_prompts_catalog_v2', JSON.stringify(updatedList));
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
   const handleToggleSave = (promptId: string) => {
-    setSavedPromptIds((prev) =>
-      prev.includes(promptId) ? prev.filter((id) => id !== promptId) : [...prev, promptId]
-    );
+    setSavedPromptIds((prev) => {
+      const updated = prev.includes(promptId) ? prev.filter((id) => id !== promptId) : [...prev, promptId];
+      try {
+        localStorage.setItem('saul_saved_prompt_ids', JSON.stringify(updated));
+      } catch (e) {
+        console.error(e);
+      }
+      return updated;
+    });
   };
 
   const handleAddPromptToLibrary = (newPrompt: Prompt) => {
-    setPrompts((prev) => [newPrompt, ...prev.filter((p) => p.id !== newPrompt.id)]);
-    if (!savedPromptIds.includes(newPrompt.id)) {
-      setSavedPromptIds((prev) => [newPrompt.id, ...prev]);
+    const normalized = ensurePromptHasInitialVersion(newPrompt);
+    setPrompts((prev) => {
+      const updated = [normalized, ...prev.filter((p) => p.id !== normalized.id)];
+      persistPrompts(updated);
+      return updated;
+    });
+    if (!savedPromptIds.includes(normalized.id)) {
+      setSavedPromptIds((prev) => {
+        const updated = [normalized.id, ...prev];
+        try {
+          localStorage.setItem('saul_saved_prompt_ids', JSON.stringify(updated));
+        } catch (e) {
+          console.error(e);
+        }
+        return updated;
+      });
     }
+  };
+
+  const handleSavePromptVersion = (
+    promptId: string,
+    versionInput: {
+      label: string;
+      templateContent: string;
+      variables: PromptVariable[];
+      variableValues: Record<string, string>;
+      recommendedModel: string;
+      notes?: string;
+    }
+  ): PromptVersion | null => {
+    let createdVersion: PromptVersion | null = null;
+
+    setPrompts((prev) => {
+      const updated = prev.map((p) => {
+        if (p.id !== promptId) return p;
+        const existingVersions = p.versions && p.versions.length > 0 ? p.versions : ensurePromptHasInitialVersion(p).versions!;
+        const nextNum = existingVersions.reduce((max, v) => Math.max(max, v.versionNumber), 0) + 1;
+        const newVer: PromptVersion = {
+          id: `${promptId}-v${nextNum}-${Date.now()}`,
+          versionNumber: nextNum,
+          label: versionInput.label.trim() || `v${nextNum}.0 • Iteración #${nextNum}`,
+          templateContent: versionInput.templateContent,
+          variables: versionInput.variables,
+          variableValues: versionInput.variableValues,
+          recommendedModel: versionInput.recommendedModel,
+          notes: versionInput.notes || 'Configuración personalizada guardada',
+          createdAt: new Date().toLocaleString('es-ES', {
+            month: 'short',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit',
+          }),
+        };
+        createdVersion = newVer;
+        const updatedPrompt: Prompt = {
+          ...p,
+          templateContent: newVer.templateContent,
+          variables: newVer.variables,
+          recommendedModel: newVer.recommendedModel,
+          versions: [...existingVersions, newVer],
+          currentVersionId: newVer.id,
+        };
+        setExecutingPrompt((curr) => (curr && curr.id === promptId ? updatedPrompt : curr));
+        return updatedPrompt;
+      });
+      persistPrompts(updated);
+      return updated;
+    });
+
+    if (!savedPromptIds.includes(promptId)) {
+      handleToggleSave(promptId);
+    }
+
+    return createdVersion;
+  };
+
+  const handleSwitchPromptVersion = (promptId: string, versionId: string) => {
+    setPrompts((prev) => {
+      const updated = prev.map((p) => {
+        if (p.id !== promptId) return p;
+        const targetVer = (p.versions || []).find((v) => v.id === versionId);
+        if (!targetVer) return p;
+        const updatedPrompt: Prompt = {
+          ...p,
+          templateContent: targetVer.templateContent,
+          variables: targetVer.variables,
+          recommendedModel: targetVer.recommendedModel,
+          currentVersionId: targetVer.id,
+        };
+        setExecutingPrompt((curr) => (curr && curr.id === promptId ? updatedPrompt : curr));
+        return updatedPrompt;
+      });
+      persistPrompts(updated);
+      return updated;
+    });
+  };
+
+  const handleDeletePromptVersion = (promptId: string, versionId: string) => {
+    setPrompts((prev) => {
+      const updated = prev.map((p) => {
+        if (p.id !== promptId || !p.versions || p.versions.length <= 1) return p;
+        const remaining = p.versions.filter((v) => v.id !== versionId);
+        const activeVer =
+          p.currentVersionId === versionId ? remaining[remaining.length - 1] : remaining.find((v) => v.id === p.currentVersionId) || remaining[remaining.length - 1];
+        const updatedPrompt: Prompt = {
+          ...p,
+          templateContent: activeVer.templateContent,
+          variables: activeVer.variables,
+          recommendedModel: activeVer.recommendedModel,
+          versions: remaining,
+          currentVersionId: activeVer.id,
+        };
+        setExecutingPrompt((curr) => (curr && curr.id === promptId ? updatedPrompt : curr));
+        return updatedPrompt;
+      });
+      persistPrompts(updated);
+      return updated;
+    });
   };
 
   const handleExecutionSuccess = () => {
@@ -151,6 +329,7 @@ export default function App() {
             onUpgradeClick={() => setActiveTab('pricing')}
             onOpenUnlockModal={() => setIsUnlockModalOpen(true)}
             onAddPromptToLibrary={handleAddPromptToLibrary}
+            onSwitchPromptVersion={handleSwitchPromptVersion}
           />
         )}
 
@@ -186,6 +365,7 @@ export default function App() {
             onNavigateToIdeaGenerator={() => setActiveTab('idea-generator')}
             onNavigateToGallery={() => setActiveTab('gallery')}
             onSimulateExecution={handleExecutionSuccess}
+            onSwitchPromptVersion={handleSwitchPromptVersion}
           />
         )}
 
@@ -242,6 +422,9 @@ export default function App() {
           setIsUnlockModalOpen(true);
         }}
         onExecutionSuccess={handleExecutionSuccess}
+        onSavePromptVersion={handleSavePromptVersion}
+        onSwitchPromptVersion={handleSwitchPromptVersion}
+        onDeletePromptVersion={handleDeletePromptVersion}
       />
 
       {/* Universal Tool Unlock Modal */}
