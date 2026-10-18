@@ -8,6 +8,7 @@ import {
   FileDown,
   Lock,
   Unlock,
+  Activity,
 } from 'lucide-react';
 import { UserSubscription, Prompt } from '../types';
 import { downloadPromptsCatalogPdf } from '../utils/pdfExport';
@@ -17,6 +18,7 @@ export type NavTabType =
   | 'optimizer'
   | 'idea-generator'
   | 'my-prompts'
+  | 'analytics'
   | 'pricing'
   | 'paypal-verify'
   | 'integrations'
@@ -129,6 +131,18 @@ export const Navbar: React.FC<NavbarProps> = ({
             </button>
 
             <button
+              onClick={() => setActiveTab('analytics')}
+              className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                activeTab === 'analytics'
+                  ? 'bg-emerald-600 text-white shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-white/80'
+              }`}
+            >
+              <Activity className="w-3.5 h-3.5 text-emerald-500" />
+              <span>Analytics</span>
+            </button>
+
+            <button
               onClick={() => setActiveTab('integrations')}
               className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                 activeTab === 'integrations'
@@ -216,6 +230,15 @@ export const Navbar: React.FC<NavbarProps> = ({
         >
           <Bookmark className="w-4 h-4" />
           <span>Mis Prompts</span>
+        </button>
+        <button
+          onClick={() => setActiveTab('analytics')}
+          className={`flex flex-col items-center space-y-0.5 px-2 py-1 rounded-lg ${
+            activeTab === 'analytics' ? 'text-emerald-600 font-bold bg-emerald-50/70' : ''
+          }`}
+        >
+          <Activity className="w-4 h-4 text-emerald-600" />
+          <span>Analytics</span>
         </button>
       </div>
     </header>

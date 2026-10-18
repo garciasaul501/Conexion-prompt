@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { Bookmark, Wand2, ArrowRight, FileDown, Eye, EyeOff, BarChart3, LayoutGrid, GitBranch, History } from 'lucide-react';
+import { Bookmark, Wand2, ArrowRight, FileDown, Eye, EyeOff, BarChart3, LayoutGrid, GitBranch, History, Activity } from 'lucide-react';
 import { Prompt, UserSubscription } from '../types';
 import { PromptCard } from './PromptCard';
 import { downloadPromptsCatalogPdf } from '../utils/pdfExport';
 import { ExecutionQuotaChart } from './ExecutionQuotaChart';
+import { PromptAnalyticsDashboard } from './PromptAnalyticsDashboard';
 
 interface MyPromptsPageProps {
   prompts: Prompt[];
@@ -31,7 +32,7 @@ export const MyPromptsPage: React.FC<MyPromptsPageProps> = ({
   onSwitchPromptVersion,
 }) => {
   const [expandAll, setExpandAll] = useState<boolean>(false);
-  const [activeTabSection, setActiveTabSection] = useState<'all' | 'chart' | 'prompts' | 'versions'>('all');
+  const [activeTabSection, setActiveTabSection] = useState<'all' | 'analytics' | 'chart' | 'prompts' | 'versions'>('all');
   const savedPrompts = prompts.filter((p) => savedPromptIds.includes(p.id));
   const isProUser = subscription.planType !== 'free';
 
@@ -49,11 +50,11 @@ export const MyPromptsPage: React.FC<MyPromptsPageProps> = ({
           </div>
 
           <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
-            Mis Prompts, Versiones & Cuota
+            Mis Prompts, Analytics & Versiones
           </h1>
 
           <p className="text-slate-600 text-xs sm:text-sm max-w-2xl">
-            Monitorea el historial de consumo de tu plan en tiempo real con Recharts y administra las versiones e iteraciones guardadas de tus prompts.
+            Analiza la tasa de éxito y latencia de respuesta por versión con gráficos de líneas en Recharts, monitorea tu cuota mensual y gestiona tus iteraciones.
           </p>
         </div>
 
@@ -104,6 +105,18 @@ export const MyPromptsPage: React.FC<MyPromptsPageProps> = ({
           </button>
 
           <button
+            onClick={() => setActiveTabSection('analytics')}
+            className={`flex items-center space-x-1.5 px-3.5 py-2 rounded-xl transition-all cursor-pointer ${
+              activeTabSection === 'analytics'
+                ? 'bg-white text-emerald-700 shadow-xs'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            <Activity className="w-3.5 h-3.5 text-emerald-600" />
+            <span>Prompt Analytics (Éxito & Latencia)</span>
+          </button>
+
+          <button
             onClick={() => setActiveTabSection('versions')}
             className={`flex items-center space-x-1.5 px-3.5 py-2 rounded-xl transition-all cursor-pointer ${
               activeTabSection === 'versions'
@@ -145,6 +158,15 @@ export const MyPromptsPage: React.FC<MyPromptsPageProps> = ({
           <span className="font-bold text-slate-800">{subscription.usedPromptsThisMonth} / {subscription.monthlyPromptQuota} prompts</span>
         </div>
       </div>
+
+      {/* Section: Prompt Analytics Dashboard (Line Chart of Success Rate & Latency by Version) */}
+      {(activeTabSection === 'all' || activeTabSection === 'analytics') && (
+        <PromptAnalyticsDashboard
+          prompts={prompts}
+          onExecutePrompt={onExecutePrompt}
+          onSwitchPromptVersion={onSwitchPromptVersion}
+        />
+      )}
 
       {/* Section: Version Control Manager (Visible in 'all' and 'versions') */}
       {(activeTabSection === 'all' || activeTabSection === 'versions') && savedPrompts.length > 0 && (

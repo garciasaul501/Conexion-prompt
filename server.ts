@@ -746,6 +746,89 @@ app.get('/api/whop/config', (_req, res) => {
   });
 });
 
+// Whop Plan ID mapping matching PricingPage.tsx
+const WHOP_PLAN_MAP: Record<
+  string,
+  { tier: string; planName: string; quota: number }
+> = {
+  plan_SIfpnGTuD8aqA: { tier: '10', planName: 'Starter 10', quota: 10 },
+  plan_ICnjxZQ83eiJR: { tier: '30', planName: 'Creator 30', quota: 30 },
+  plan_q5j9FOvuIZmaQ: { tier: '50', planName: 'Pro 50', quota: 50 },
+  plan_NnHFpV95rjcod: { tier: '100', planName: 'Growth 100', quota: 100 },
+  plan_22ppS98N4577w: { tier: '500', planName: 'Agency 500', quota: 500 },
+  plan_8dSaYNyZiabrU: { tier: '1000', planName: 'Enterprise 1000', quota: 1000 },
+};
+
+// Whop Entitlement Verification by Email Endpoint
+app.get('/api/whop/entitlement', async (req, res) => {
+  try {
+    const email = String(req.query.email || '').trim().toLowerCase();
+    if (!email || !email.includes('@')) {
+      return res.status(400).json({
+        success: false,
+        error: 'Ingresa un correo electrónico válido.',
+      });
+    }
+
+    if (WHOP_API_KEY) {
+      try {
+        const whopResp = await fetch(
+          `https://api.whop.com/api/v2/memberships?valid=true&per=50`,
+          {
+            headers: {
+              Authorization: `Bearer ${WHOP_API_KEY}`,
+              Accept: 'application/json',
+            },
+          }
+        );
+
+        if (whopResp.ok) {
+          const payload: any = await whopResp.json();
+          const memberships: any[] = Array.isArray(payload?.data) ? payload.data : [];
+          const match = memberships.find(
+            (m) =>
+              String(m?.email || m?.user?.email || '').trim().toLowerCase() === email &&
+              (m?.valid === true || m?.status === 'active' || m?.status === 'trialing')
+          );
+
+          if (match) {
+            const planInfo = WHOP_PLAN_MAP[String(match.plan || match.plan_id)] || {
+              tier: '50',
+              planName: 'Pro 50',
+              quota: 50,
+            };
+            const periodEnd = match.renewal_period_end
+              ? new Date(Number(match.renewal_period_end) * 1000).toISOString().split('T')[0]
+              : undefined;
+
+            return res.json({
+              success: true,
+              active: true,
+              tier: planInfo.tier,
+              planName: planInfo.planName,
+              quota: planInfo.quota,
+              currentPeriodEnd: periodEnd,
+            });
+          }
+        }
+      } catch (apiErr) {
+        console.warn('[Whop Entitlement] Error querying Whop API:', apiErr);
+      }
+    }
+
+    return res.json({
+      success: true,
+      active: false,
+      message: 'No encontramos una suscripción activa en Whop asociada a ese correo.',
+    });
+  } catch (err: any) {
+    res.status(500).json({
+      success: false,
+      error: err?.message || 'No se pudo verificar tu suscripción.',
+    });
+  }
+});
+
 // Whop Discount Validation Endpoint (Connected to https://whop.com/@saulmente)
 app.post('/api/whop/validate-discount', async (req, res) => {
   try {

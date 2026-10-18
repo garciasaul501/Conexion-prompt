@@ -186,3 +186,35 @@ export interface MonthlyExecutionRecord {
   isCurrent?: boolean;
 }
 
+export interface PromptVersionAnalyticsPoint {
+  timestamp: string;
+  dateLabel: string;
+  // Success rates (%) per version
+  v1SuccessRate: number;
+  v2SuccessRate: number;
+  v3SuccessRate: number;
+  activeVersionSuccessRate?: number;
+  // Average response latency (ms) per version
+  v1LatencyMs: number;
+  v2LatencyMs: number;
+  v3LatencyMs: number;
+  activeVersionLatencyMs?: number;
+  // Sample size / executions count in period
+  sampleCount: number;
+  isLivePoint?: boolean;
+}
+
+export interface PromptExecutionTelemetry {
+  id: string;
+  promptId: string;
+  promptTitle: string;
+  versionId: string;
+  versionLabel: string;
+  modelUsed: string;
+  latencyMs: number;
+  success: boolean;
+  qualityScore: number;
+  timestamp: string;
+}
+
+
