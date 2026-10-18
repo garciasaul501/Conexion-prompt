@@ -1,4 +1,4 @@
-import { PromptCategory, Prompt, UserProfile, UserSubscription, UserIntegration, PricingTier } from '../types';
+import { PromptCategory, Prompt, UserProfile, UserSubscription, UserIntegration, PricingTier, MonthlyExecutionRecord } from '../types';
 
 export const INITIAL_CATEGORIES: PromptCategory[] = [
   {
@@ -626,5 +626,69 @@ export const INITIAL_INTEGRATIONS: UserIntegration[] = [
       scopes: ['user.info.basic', 'video.upload', 'video.publish'],
       connectedAt: '2026-10-03',
     },
+  },
+];
+
+export const INITIAL_MONTHLY_EXECUTION_HISTORY: MonthlyExecutionRecord[] = [
+  {
+    month: 'Noviembre 2025',
+    shortMonth: 'Nov',
+    executed: 4,
+    quota: 5,
+    marketingExecutions: 2,
+    salesExecutions: 1,
+    socialExecutions: 1,
+    agentsExecutions: 0,
+  },
+  {
+    month: 'Diciembre 2025',
+    shortMonth: 'Dic',
+    executed: 5,
+    quota: 5,
+    marketingExecutions: 2,
+    salesExecutions: 2,
+    socialExecutions: 1,
+    agentsExecutions: 0,
+  },
+  {
+    month: 'Enero 2026',
+    shortMonth: 'Ene',
+    executed: 9,
+    quota: 10,
+    marketingExecutions: 4,
+    salesExecutions: 3,
+    socialExecutions: 1,
+    agentsExecutions: 1,
+  },
+  {
+    month: 'Febrero 2026',
+    shortMonth: 'Feb',
+    executed: 24,
+    quota: 30,
+    marketingExecutions: 10,
+    salesExecutions: 8,
+    socialExecutions: 4,
+    agentsExecutions: 2,
+  },
+  {
+    month: 'Marzo 2026',
+    shortMonth: 'Mar',
+    executed: 44,
+    quota: 50,
+    marketingExecutions: 19,
+    salesExecutions: 13,
+    socialExecutions: 8,
+    agentsExecutions: 4,
+  },
+  {
+    month: 'Abril 2026 (Actual)',
+    shortMonth: 'Abr',
+    executed: 1,
+    quota: 5,
+    marketingExecutions: 1,
+    salesExecutions: 0,
+    socialExecutions: 0,
+    agentsExecutions: 0,
+    isCurrent: true,
   },
 ];

@@ -160,3 +160,15 @@ export interface PayPalMerchantInfo {
   completedTransactionsCount: number;
 }
 
+export interface MonthlyExecutionRecord {
+  month: string;
+  shortMonth: string;
+  executed: number;
+  quota: number;
+  marketingExecutions?: number;
+  salesExecutions?: number;
+  socialExecutions?: number;
+  agentsExecutions?: number;
+  isCurrent?: boolean;
+}
+

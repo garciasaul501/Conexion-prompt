@@ -140,7 +140,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             }`}
           >
             <Bookmark className="w-4 h-4 text-indigo-500" />
-            <span>Mis Prompts</span>
+            <span>Mis Prompts & Cuota</span>
           </button>
 
           <button

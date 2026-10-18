@@ -185,6 +185,7 @@ export default function App() {
             onUpgradeClick={() => setActiveTab('pricing')}
             onNavigateToIdeaGenerator={() => setActiveTab('idea-generator')}
             onNavigateToGallery={() => setActiveTab('gallery')}
+            onSimulateExecution={handleExecutionSuccess}
           />
         )}
 
