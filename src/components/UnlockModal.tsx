@@ -37,14 +37,8 @@ export const UnlockModal: React.FC<UnlockModalProps> = ({
   const isUnlocked = subscription.planType !== 'free';
 
   const handleInstantUnlockPro = () => {
-    onUpdateSubscription('50', 'active', {
-      paymentMethod: 'whop',
-      monthlyPromptQuota: 50,
-      whopDiscountApplied: true,
-      whopUsername: '@saulmente',
-      discountPercent: 40,
-    });
-    setStatusMessage('¡Herramienta Desbloqueada al instante! Plan 50 Prompts activo.');
+    onClose();
+    onNavigateToPricing();
   };
 
   const handleRelockFree = () => {
