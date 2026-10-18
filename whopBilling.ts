@@ -1,197 +1,88 @@
-import type { Express, Request, Response } from 'express';
+import express from 'express';
+import type { Express } from 'express';
+import { unwrapWebhook } from '@whop/sdk/helpers';
 
-const WHOP_API_KEY = process.env.WHOP_API_KEY || '';
-const WHOP_APP_ID = process.env.NEXT_PUBLIC_WHOP_APP_ID || process.env.WHOP_APP_ID || 'app_Z9uG5HDyKePvKL';
-
-export const WHOP_PLAN_MAP: Record<
-  string,
-  { tier: string; planName: string; quota: number }
-> = {
-  plan_SIfpnGTuD8aqA: { tier: '10', planName: 'Plan 10 Prompts', quota: 10 },
-  plan_ICnjxZQ83eiJR: { tier: '30', planName: 'Plan 30 Prompts', quota: 30 },
-  plan_q5j9FOvuIZmaQ: { tier: '50', planName: 'Plan 50 Prompts', quota: 50 },
-  plan_NnHFpV95rjcod: { tier: '100', planName: 'Plan 100 Prompts', quota: 100 },
-  plan_22ppS98N4577w: { tier: '500', planName: 'Plan 500 Prompts', quota: 500 },
-  plan_8dSaYNyZiabrU: { tier: '1000', planName: 'Plan 1000 Prompts', quota: 1000 },
+export const WHOP_PRODUCT_ID = 'prod_Y9R8h0VvDnrSq';
+export const WHOP_PLANS: Record<string, { tier: string; quota: number; name: string }> = {
+  plan_SIfpnGTuD8aqA: { tier: '10', quota: 10, name: 'Starter Pack 10' },
+  plan_ICnjxZQ83eiJR: { tier: '30', quota: 30, name: 'Creador Básico 30' },
+  plan_q5j9FOvuIZmaQ: { tier: '50', quota: 50, name: 'Creador Pro 50' },
+  plan_NnHFpV95rjcod: { tier: '100', quota: 100, name: 'Business Booster 100' },
+  plan_22ppS98N4577w: { tier: '500', quota: 500, name: 'Agencia Master 500' },
+  plan_8dSaYNyZiabrU: { tier: '1000', quota: 1000, name: 'VIP Enterprise 1000' },
 };
 
-interface CachedEntitlement {
-  email: string;
-  tier: string;
-  planName: string;
-  quota: number;
-  active: boolean;
-  currentPeriodEnd?: string;
-  updatedAt: string;
+const API = 'https://api.whop.com/api/v1';
+
+async function whopGet(path: string, params: Record<string, string>) {
+  const key = process.env.WHOP_API_KEY;
+  if (!key) throw new Error('WHOP_API_KEY no está configurada en el servidor.');
+  const res = await fetch(`${API}${path}?${new URLSearchParams(params)}`, {
+    headers: { Authorization: `Bearer ${key}`, Accept: 'application/json' },
+  });
+  if (!res.ok) throw new Error(`Whop API ${res.status}: ${(await res.text()).slice(0, 200)}`);
+  return res.json() as Promise<any>;
 }
 
-const entitlementsByEmail = new Map<string, CachedEntitlement>();
+// IMPORTANTE: llamar ANTES de app.use(express.json()), porque la firma
+// se verifica sobre el cuerpo sin parsear.
+export function registerWhopWebhook(app: Express) {
+  app.post('/api/whop/webhook', express.raw({ type: 'application/json' }), (req, res) => {
+    const secret = process.env.WHOP_WEBHOOK_SECRET;
+    if (!secret) return res.status(500).send('Webhook no configurado');
+    try {
+      const event: any = unwrapWebhook(req.body.toString('utf8'), { headers: req.headers as any, key: secret });
+      // Evento verificado. No dependemos de su contenido: el acceso se decide
+      // consultando a Whop en /api/whop/entitlement.
+      console.log('[Whop webhook]', event.type);
+      res.sendStatus(200);
+    } catch {
+      res.status(400).send('Firma inválida');
+    }
+  });
+}
 
-export function registerWhopBilling(app: Express): void {
-  // Whop App Config & Status Endpoint
-  app.get('/api/whop/config', (_req: Request, res: Response) => {
+export function registerWhopBilling(app: Express) {
+  app.get('/api/whop/config', (_req, res) => {
     res.json({
       success: true,
-      appId: WHOP_APP_ID,
-      hasApiKey: !!WHOP_API_KEY,
-      whopProfileUrl: 'https://whop.com/@saulmente',
+      hasApiKey: !!process.env.WHOP_API_KEY,
+      hasWebhookSecret: !!process.env.WHOP_WEBHOOK_SECRET,
       discountCode: 'WHOP40',
-      message: 'Whop billing integration active.',
     });
   });
 
-  // Whop Entitlement Check by Email
-  app.get('/api/whop/entitlement', async (req: Request, res: Response) => {
+  app.get('/api/whop/entitlement', async (req, res) => {
     try {
       const email = String(req.query.email || '').trim().toLowerCase();
-      if (!email || !email.includes('@')) {
-        return res.status(400).json({
-          success: false,
-          error: 'Ingresa un correo electrónico válido.',
-        });
+      if (!/^\S+@\S+\.\S+$/.test(email)) {
+        return res.status(400).json({ success: false, error: 'Correo no válido.' });
       }
+      const members = await whopGet('/members', { query: email, first: '5' });
+      const memberIds: string[] = (members.data || []).map((m: any) => m.id).filter(Boolean);
 
-      // 1. Check webhook/in-memory cache first
-      const cached = entitlementsByEmail.get(email);
-      if (cached && cached.active) {
-        return res.json({
-          success: true,
-          active: true,
-          tier: cached.tier,
-          planName: cached.planName,
-          quota: cached.quota,
-          currentPeriodEnd: cached.currentPeriodEnd,
-        });
-      }
-
-      // 2. Query Whop API v2 / v5 if WHOP_API_KEY is configured
-      if (WHOP_API_KEY) {
-        try {
-          const whopResp = await fetch(
-            `https://api.whop.com/api/v2/memberships?valid=true&per=50`,
-            {
-              headers: {
-                Authorization: `Bearer ${WHOP_API_KEY}`,
-                Accept: 'application/json',
-              },
-            }
-          );
-
-          if (whopResp.ok) {
-            const payload: any = await whopResp.json();
-            const memberships: any[] = Array.isArray(payload?.data) ? payload.data : [];
-            const match = memberships.find(
-              (m) =>
-                String(m?.email || m?.user?.email || '').trim().toLowerCase() === email &&
-                (m?.valid === true || m?.status === 'active' || m?.status === 'trialing')
-            );
-
-            if (match) {
-              const planId = String(match.plan || match.plan_id || '');
-              const planInfo = WHOP_PLAN_MAP[planId] || {
-                tier: '50',
-                planName: 'Plan 50 Prompts',
-                quota: 50,
-              };
-              const periodEnd = match.renewal_period_end
-                ? new Date(Number(match.renewal_period_end) * 1000).toISOString().split('T')[0]
-                : undefined;
-
-              const record: CachedEntitlement = {
-                email,
-                tier: planInfo.tier,
-                planName: planInfo.planName,
-                quota: planInfo.quota,
-                active: true,
-                currentPeriodEnd: periodEnd,
-                updatedAt: new Date().toISOString(),
-              };
-              entitlementsByEmail.set(email, record);
-
-              return res.json({
-                success: true,
-                active: true,
-                tier: record.tier,
-                planName: record.planName,
-                quota: record.quota,
-                currentPeriodEnd: record.currentPeriodEnd,
-              });
-            }
+      let best: { planId: string; membershipId: string; periodEnd?: string } | null = null;
+      for (const memberId of memberIds) {
+        const ms = await whopGet('/memberships', { member_id: memberId, product_id: WHOP_PRODUCT_ID, first: '20' });
+        for (const m of ms.data || []) {
+          const planId: string = m.plan?.id ?? m.plan_id;
+          if (!['active', 'trialing'].includes(m.status) || !WHOP_PLANS[planId]) continue;
+          if (!best || WHOP_PLANS[planId].quota > WHOP_PLANS[best.planId].quota) {
+            best = { planId, membershipId: m.id, periodEnd: m.current_period_end ?? m.renewal_period_end };
           }
-        } catch (apiErr) {
-          console.warn('[Whop Entitlement] Error querying Whop API:', apiErr);
         }
       }
-
-      return res.json({
-        success: true,
-        active: false,
-        message: 'No encontramos una suscripción activa en Whop con ese correo.',
-      });
-    } catch (err: any) {
-      return res.status(500).json({
-        success: false,
-        error: err?.message || 'No se pudo verificar tu suscripción.',
-      });
-    }
-  });
-
-  // Whop Webhook Receiver (membership.went_valid, membership.went_invalid, payment.succeeded)
-  app.post('/api/whop/webhook', (req: Request, res: Response) => {
-    try {
-      const body = req.body || {};
-      const action = String(body.action || body.event || body.type || '');
-      const data = body.data || body.resource || body;
-      const email = String(data?.email || data?.user?.email || '').trim().toLowerCase();
-      const planId = String(data?.plan || data?.plan_id || '');
-
-      if (email) {
-        const planInfo = WHOP_PLAN_MAP[planId] || {
-          tier: '50',
-          planName: 'Plan 50 Prompts',
-          quota: 50,
-        };
-        const isInvalid =
-          action.includes('invalid') ||
-          action.includes('cancel') ||
-          data?.valid === false ||
-          data?.status === 'canceled';
-
-        entitlementsByEmail.set(email, {
-          email,
-          tier: isInvalid ? 'free' : planInfo.tier,
-          planName: isInvalid ? 'Free' : planInfo.planName,
-          quota: isInvalid ? 5 : planInfo.quota,
-          active: !isInvalid,
-          currentPeriodEnd: data?.renewal_period_end
-            ? new Date(Number(data.renewal_period_end) * 1000).toISOString().split('T')[0]
-            : undefined,
-          updatedAt: new Date().toISOString(),
-        });
+      if (!best) {
+        return res.json({ success: true, active: false, message: 'No encontramos una suscripción activa para ese correo.' });
       }
-
-      res.json({ received: true, action });
-    } catch (err: any) {
-      res.status(500).json({ received: false, error: err?.message });
-    }
-  });
-
-  // Whop Discount Validation Endpoint
-  app.post('/api/whop/validate-discount', (req: Request, res: Response) => {
-    const { usernameOrCode } = req.body || {};
-    const input = String(usernameOrCode || '').trim().toLowerCase();
-    if (!input) {
-      return res.status(400).json({
-        valid: false,
-        message: 'Ingresa el código WHOP40 o tu usuario de Whop.',
+      const plan = WHOP_PLANS[best.planId];
+      res.json({
+        success: true, active: true, tier: plan.tier, quota: plan.quota, planName: plan.name,
+        membershipId: best.membershipId, currentPeriodEnd: best.periodEnd,
       });
+    } catch (err: any) {
+      console.error('[whop entitlement]', err?.message);
+      res.status(502).json({ success: false, error: 'No se pudo consultar Whop. Intenta de nuevo.' });
     }
-    return res.json({
-      valid: true,
-      discountPercentage: 40,
-      promoCode: 'WHOP40',
-      whopUrl: 'https://whop.com/@saulmente',
-      message: '¡40% de descuento activado con el código WHOP40!',
-    });
   });
 }

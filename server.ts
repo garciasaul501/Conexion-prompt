@@ -3,7 +3,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { createServer as createViteServer } from 'vite';
 import { GoogleGenAI } from '@google/genai';
-import { registerWhopBilling } from './whopBilling';
+import { registerWhopWebhook, registerWhopBilling } from './whopBilling';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -11,6 +11,7 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const PORT = Number(process.env.PORT) || 3000;
 
+registerWhopWebhook(app);
 app.use(express.json());
 registerWhopBilling(app);
 
