@@ -42,7 +42,8 @@ export const PricingPage: React.FC<PricingPageProps> = ({ subscription, onUpdate
       const res = await fetch(`/api/whop/entitlement?email=${encodeURIComponent(email.trim())}`);
       const data = await res.json();
       if (!res.ok || !data.success) {
-        setResult({ ok: false, text: data.error || 'No se pudo verificar tu suscripción.' });
+        const msg = data.error || 'No se pudo verificar tu suscripción.';
+        setResult({ ok: false, text: data.detail ? `${msg} (${data.detail})` : msg });
       } else if (data.active) {
         onUpdateSubscription(data.tier, 'active', {
           paymentMethod: 'whop',

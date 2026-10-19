@@ -115,7 +115,11 @@ export function registerWhopBilling(app: Express) {
       });
     } catch (err: any) {
       console.error('[whop entitlement]', err?.message);
-      res.status(502).json({ success: false, error: 'No se pudo consultar Whop. Intenta de nuevo.' });
+      res.status(502).json({
+        success: false,
+        error: 'No se pudo consultar Whop. Intenta de nuevo.',
+        detail: String(err?.message || '').slice(0, 200), // TEMPORAL: quitar después
+      });
     }
   });
 }
