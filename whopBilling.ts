@@ -1,6 +1,13 @@
+import dotenv from 'dotenv';
+import path from 'path';
 import express from 'express';
 import type { Express } from 'express';
 import { unwrapWebhook } from '@whop/sdk/helpers';
+
+// Load .env from multiple possible working directories (e.g., Hostinger root, dist/, or parent)
+dotenv.config();
+dotenv.config({ path: path.resolve(process.cwd(), '.env') });
+dotenv.config({ path: path.resolve(process.cwd(), '..', '.env') });
 
 export const WHOP_PRODUCT_ID = 'prod_Y9R8h0VvDnrSq';
 export const WHOP_PLANS: Record<string, { tier: string; quota: number; name: string }> = {
@@ -14,11 +21,35 @@ export const WHOP_PLANS: Record<string, { tier: string; quota: number; name: str
 
 const API = 'https://api.whop.com/api/v1';
 
-async function whopGet(path: string, params: Record<string, string>) {
-  const key = process.env.WHOP_API_KEY;
+function cleanEnvValue(val?: string): string {
+  if (!val) return '';
+  return val.trim().replace(/^['"]+|['"]+$/g, '').trim();
+}
+
+function getWhopApiKey(): string {
+  return cleanEnvValue(
+    process.env.WHOP_API_KEY ||
+      process.env.VITE_WHOP_API_KEY ||
+      process.env.NEXT_PUBLIC_WHOP_API_KEY
+  );
+}
+
+function getWhopWebhookSecret(): string {
+  return cleanEnvValue(
+    process.env.WHOP_WEBHOOK_SECRET ||
+      process.env.VITE_WHOP_WEBHOOK_SECRET ||
+      process.env.NEXT_PUBLIC_WHOP_WEBHOOK_SECRET
+  );
+}
+
+async function whopGet(urlPath: string, params: Record<string, string>) {
+  const key = getWhopApiKey();
   if (!key) throw new Error('WHOP_API_KEY no está configurada en el servidor.');
-  const res = await fetch(`${API}${path}?${new URLSearchParams(params)}`, {
-    headers: { Authorization: `Bearer ${key}`, Accept: 'application/json' },
+  const res = await fetch(`${API}${urlPath}?${new URLSearchParams(params)}`, {
+    headers: {
+      Authorization: `Bearer ${key}`,
+      Accept: 'application/json',
+    },
   });
   if (!res.ok) throw new Error(`Whop API ${res.status}: ${(await res.text()).slice(0, 200)}`);
   return res.json() as Promise<any>;
@@ -28,7 +59,7 @@ async function whopGet(path: string, params: Record<string, string>) {
 // se verifica sobre el cuerpo sin parsear.
 export function registerWhopWebhook(app: Express) {
   app.post('/api/whop/webhook', express.raw({ type: 'application/json' }), (req, res) => {
-    const secret = process.env.WHOP_WEBHOOK_SECRET;
+    const secret = getWhopWebhookSecret();
     if (!secret) return res.status(500).send('Webhook no configurado');
     try {
       const event: any = unwrapWebhook(req.body.toString('utf8'), { headers: req.headers as any, key: secret });
@@ -44,10 +75,12 @@ export function registerWhopWebhook(app: Express) {
 
 export function registerWhopBilling(app: Express) {
   app.get('/api/whop/config', (_req, res) => {
+    const apiKey = getWhopApiKey();
+    const webhookSecret = getWhopWebhookSecret();
     res.json({
       success: true,
-      hasApiKey: !!process.env.WHOP_API_KEY,
-      hasWebhookSecret: !!process.env.WHOP_WEBHOOK_SECRET,
+      hasApiKey: !!apiKey,
+      hasWebhookSecret: !!webhookSecret,
       discountCode: 'WHOP40',
     });
   });
