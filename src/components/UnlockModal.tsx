@@ -4,14 +4,18 @@ import {
   Unlock,
   ShieldCheck,
   CheckCircle2,
+  AlertCircle,
   Sparkles,
   X,
   KeyRound,
   User,
   Zap,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 import { UserSubscription } from '../types';
-import { PLAN_CREDENTIALS, buildDirectPayPalCheckoutUrl } from './PricingPage';
+import { buildDirectPayPalCheckoutUrl } from './PricingPage';
+import { validateAdminCredentials } from '../utils/adminAuth';
 
 interface UnlockModalProps {
   isOpen: boolean;
@@ -42,9 +46,10 @@ export const UnlockModal: React.FC<UnlockModalProps> = ({
   onNavigateToPricing,
 }) => {
   const [selectedTierId, setSelectedTierId] = useState<string>('50');
-  const [username, setUsername] = useState<string>(PLAN_CREDENTIALS['50'].username);
-  const [password, setPassword] = useState<string>(PLAN_CREDENTIALS['50'].password);
-  const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const [username, setUsername] = useState<string>('');
+  const [password, setPassword] = useState<string>('');
+  const [showPassword, setShowPassword] = useState<boolean>(false);
+  const [statusMessage, setStatusMessage] = useState<{ ok: boolean; text: string } | null>(null);
 
   if (!isOpen) return null;
 
@@ -61,35 +66,37 @@ export const UnlockModal: React.FC<UnlockModalProps> = ({
 
   const handleSelectPlan = (tierId: string) => {
     setSelectedTierId(tierId);
-    const creds = PLAN_CREDENTIALS[tierId];
-    if (creds) {
-      setUsername(creds.username);
-      setPassword(creds.password);
-    }
     setStatusMessage(null);
   };
 
   const handleActivateSelectedPlan = () => {
     const plan = PLAN_OPTIONS.find((p) => p.id === selectedTierId) || PLAN_OPTIONS[2];
-    if (!username.trim() || !password.trim()) {
-      setStatusMessage('Por favor verifica que el usuario y password estén escritos.');
+    const validation = validateAdminCredentials(username, password, selectedTierId);
+
+    if (!validation.success) {
+      setStatusMessage({ ok: false, text: validation.message });
       return;
     }
+
     onUpdateSubscription(plan.id, 'active', {
       paymentMethod: 'paypal',
-      monthlyPromptQuota: plan.quota,
+      monthlyPromptQuota: validation.quota || plan.quota,
     });
-    setStatusMessage(
-      `¡${plan.name} (${plan.quota} prompts/mes) activado para ${username.trim()}!`
-    );
+
+    setStatusMessage({
+      ok: true,
+      text: validation.message,
+    });
   };
 
   const handleRelockFree = () => {
     onUpdateSubscription('free', 'active', {
       monthlyPromptQuota: 5,
-      whopDiscountApplied: false,
     });
-    setStatusMessage('Herramienta regresada a Modo Gratuito (5 prompts).');
+    setStatusMessage({
+      ok: true,
+      text: 'Herramienta regresada a Modo Gratuito (5 prompts).',
+    });
   };
 
   return (
@@ -141,54 +148,69 @@ export const UnlockModal: React.FC<UnlockModalProps> = ({
           </div>
 
           <p className="text-xs sm:text-sm text-slate-200 mt-2 leading-relaxed">
-            Selecciona cualquier plan para cargar su usuario y password automáticamente y pulsa{' '}
-            <strong>Activar</strong>.
+            Suscríbete con PayPal para acceso automático o desbloquea cualquier plan con tus credenciales seguras de administrador.
           </p>
         </div>
 
         {/* Modal Body */}
         <div className="p-6 sm:p-8 space-y-5">
           {statusMessage && (
-            <div className="p-4 rounded-2xl border bg-emerald-50 border-emerald-300 text-emerald-900 text-xs sm:text-sm flex items-center space-x-3">
-              <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
-              <div className="flex-1 font-bold">{statusMessage}</div>
+            <div
+              className={`p-4 rounded-2xl border text-xs sm:text-sm flex items-center space-x-3 ${
+                statusMessage.ok
+                  ? 'bg-emerald-50 border-emerald-300 text-emerald-900'
+                  : 'bg-rose-50 border-rose-300 text-rose-900'
+              }`}
+            >
+              {statusMessage.ok ? (
+                <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+              ) : (
+                <AlertCircle className="w-5 h-5 text-rose-600 shrink-0" />
+              )}
+              <div className="flex-1 font-bold">{statusMessage.text}</div>
             </div>
           )}
 
-          {/* Direct Plan Access Box with Pre-filled Credentials */}
-          <div className="p-4 rounded-2xl bg-slate-900 text-white border border-slate-800 space-y-3.5">
+          {/* Secure Admin Unlock Box (Credentials masked, not displayed openly) */}
+          <div className="p-5 rounded-2xl bg-slate-900 text-white border border-slate-800 space-y-4">
             <div className="flex items-center justify-between">
               <span className="text-xs font-extrabold text-amber-400 flex items-center gap-1.5">
                 <KeyRound className="w-4 h-4" />
-                <span>Acceso por Plan (Usuario y Password ya escritos)</span>
+                <span>Desbloqueo de Administrador (Acceso Seguro)</span>
               </span>
               <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                Listo para activar
+                Privado y Encriptado
               </span>
             </div>
 
             {/* Plan Selector Pills */}
-            <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5">
-              {PLAN_OPTIONS.map((p) => (
-                <button
-                  key={p.id}
-                  type="button"
-                  onClick={() => handleSelectPlan(p.id)}
-                  className={`py-1.5 px-2 rounded-xl text-[11px] font-extrabold transition-all cursor-pointer border ${
-                    selectedTierId === p.id
-                      ? 'bg-amber-400 text-slate-950 border-amber-300 shadow-sm'
-                      : 'bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700'
-                  }`}
-                >
-                  {p.shortName}
-                </button>
-              ))}
+            <div className="space-y-1">
+              <label className="block text-[10px] font-bold text-slate-400">
+                Selecciona el plan a desbloquear:
+              </label>
+              <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5">
+                {PLAN_OPTIONS.map((p) => (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onClick={() => handleSelectPlan(p.id)}
+                    className={`py-1.5 px-2 rounded-xl text-[11px] font-extrabold transition-all cursor-pointer border ${
+                      selectedTierId === p.id
+                        ? 'bg-amber-400 text-slate-950 border-amber-300 shadow-sm'
+                        : 'bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700'
+                    }`}
+                  >
+                    {p.shortName}
+                  </button>
+                ))}
+              </div>
             </div>
 
+            {/* Masked credentials inputs */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
               <div>
                 <label className="block text-[10px] font-bold text-slate-300 mb-1">
-                  Usuario:
+                  Usuario o Correo:
                 </label>
                 <div className="relative flex items-center">
                   <User className="w-3.5 h-3.5 text-slate-400 absolute left-3 pointer-events-none" />
@@ -196,22 +218,36 @@ export const UnlockModal: React.FC<UnlockModalProps> = ({
                     type="text"
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
-                    className="w-full pl-8 pr-3 py-2 rounded-xl bg-slate-800 border border-slate-700 text-xs font-mono text-white focus:outline-none focus:border-amber-400"
+                    placeholder="usuario@dominio.com"
+                    className="w-full pl-8 pr-3 py-2 rounded-xl bg-slate-800 border border-slate-700 text-xs font-mono text-white placeholder-slate-500 focus:outline-none focus:border-amber-400"
                   />
                 </div>
               </div>
               <div>
                 <label className="block text-[10px] font-bold text-slate-300 mb-1">
-                  Password:
+                  Password de Activación:
                 </label>
                 <div className="relative flex items-center">
                   <Lock className="w-3.5 h-3.5 text-slate-400 absolute left-3 pointer-events-none" />
                   <input
-                    type="text"
+                    type={showPassword ? 'text' : 'password'}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className="w-full pl-8 pr-3 py-2 rounded-xl bg-slate-800 border border-slate-700 text-xs font-mono text-amber-300 font-bold focus:outline-none focus:border-amber-400"
+                    placeholder="••••••••••••••"
+                    className="w-full pl-8 pr-9 py-2 rounded-xl bg-slate-800 border border-slate-700 text-xs font-mono text-amber-300 font-bold placeholder-slate-500 focus:outline-none focus:border-amber-400"
                   />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-2.5 text-slate-400 hover:text-white cursor-pointer"
+                    title={showPassword ? 'Ocultar password' : 'Ver password'}
+                  >
+                    {showPassword ? (
+                      <EyeOff className="w-3.5 h-3.5" />
+                    ) : (
+                      <Eye className="w-3.5 h-3.5" />
+                    )}
+                  </button>
                 </div>
               </div>
             </div>
@@ -224,7 +260,7 @@ export const UnlockModal: React.FC<UnlockModalProps> = ({
               >
                 <Zap className="w-4 h-4 fill-current" />
                 <span>
-                  Activar {currentSelectedPlan.shortName} ({currentSelectedPlan.quota} Prompts)
+                  Desbloquear {currentSelectedPlan.shortName} ({currentSelectedPlan.quota} Prompts)
                 </span>
               </button>
 
@@ -235,12 +271,12 @@ export const UnlockModal: React.FC<UnlockModalProps> = ({
                 className="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-amber-400 via-yellow-300 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-slate-950 font-black text-xs flex items-center justify-center gap-1.5 shadow-md cursor-pointer transition-all text-center"
               >
                 <Sparkles className="w-3.5 h-3.5 fill-current shrink-0" />
-                <span>Suscribirte • ${currentSelectedPlan.priceUsd}/mes</span>
+                <span>Pagar con PayPal • ${currentSelectedPlan.priceUsd}/mes</span>
               </a>
             </div>
           </div>
 
-          {/* Main Golden CTA Button */}
+          {/* Golden CTA Button */}
           <div className="text-center">
             <button
               onClick={() => {

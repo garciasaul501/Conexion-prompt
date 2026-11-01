@@ -18,6 +18,7 @@ import {
 import { PromptCategory, Prompt, UserSubscription } from '../types';
 import { PromptCard } from './PromptCard';
 import { PromptIdeaModal } from './PromptIdeaModal';
+import { ControlPanel } from './ControlPanel';
 import { downloadPromptsCatalogPdf } from '../utils/pdfExport';
 
 interface PromptGalleryProps {
@@ -31,6 +32,7 @@ interface PromptGalleryProps {
   onOpenUnlockModal?: () => void;
   onAddPromptToLibrary: (prompt: Prompt) => void;
   onSwitchPromptVersion?: (promptId: string, versionId: string) => void;
+  onNavigateToAnalytics?: () => void;
 }
 
 export const PromptGallery: React.FC<PromptGalleryProps> = ({
@@ -44,6 +46,7 @@ export const PromptGallery: React.FC<PromptGalleryProps> = ({
   onOpenUnlockModal,
   onAddPromptToLibrary,
   onSwitchPromptVersion,
+  onNavigateToAnalytics,
 }) => {
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>('cat-all');
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -213,6 +216,16 @@ export const PromptGallery: React.FC<PromptGalleryProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Panel de Control & Resumen de Productividad (Prompts Más Ejecutados y Ahorro Estimado) */}
+      <ControlPanel
+        prompts={prompts}
+        categories={categories}
+        subscription={subscription}
+        onExecutePrompt={handleCardExecute}
+        onUpgradeClick={onUpgradeClick}
+        onNavigateToAnalytics={onNavigateToAnalytics}
+      />
 
       {/* Real-Time Search & Filter Controls */}
       <div className="bg-white border border-slate-200 rounded-3xl p-5 sm:p-6 shadow-xs space-y-4">

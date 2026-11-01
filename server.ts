@@ -162,7 +162,7 @@ app.get('/api/health', (_req, res) => {
 
 // Direct PayPal Merchant Configuration & Payment Verification
 let activePayPalMerchantEmail =
-  (process.env.PAYPAL_MERCHANT_EMAIL || 'garciasaul501@gmail.com').trim();
+  (process.env.PAYPAL_MERCHANT_EMAIL || 'garciasaul@hotmail.com').trim();
 
 const PAYPAL_PLANS_MAP: Record<string, { tier: string; quota: number; name: string; priceUsd: number }> = {
   '10': { tier: '10', quota: 10, name: 'Starter Pack 10', priceUsd: 9 },

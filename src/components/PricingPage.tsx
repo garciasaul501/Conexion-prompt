@@ -11,9 +11,12 @@ import {
   Eye,
   EyeOff,
   Zap,
+  ShieldCheck,
+  X,
 } from 'lucide-react';
 import { UserSubscription } from '../types';
 import { PRICING_TIERS } from '../data/mockDatabase';
+import { validateAdminCredentials } from '../utils/adminAuth';
 
 interface PricingPageProps {
   subscription: UserSubscription;
@@ -25,7 +28,7 @@ interface PricingPageProps {
   onGoToVerify?: () => void;
 }
 
-const DEFAULT_MERCHANT_EMAIL = 'garciasaul501@gmail.com';
+const DEFAULT_MERCHANT_EMAIL = 'garciasaul@hotmail.com';
 
 export function buildDirectPayPalCheckoutUrl(params: {
   tierId: string;
@@ -59,82 +62,21 @@ export function buildDirectPayPalCheckoutUrl(params: {
   return `https://www.paypal.com/cgi-bin/webscr?${query.toString()}`;
 }
 
-export interface PlanCredentialConfig {
-  username: string;
-  password: string;
-  label: string;
-  quota: number;
-}
-
-export const PLAN_CREDENTIALS: Record<string, PlanCredentialConfig> = {
-  free: {
-    username: 'demo@conexionprompts.com',
-    password: 'FREE-5-DEMO',
-    label: 'Plan Gratuito (5 Prompts)',
-    quota: 5,
-  },
-  '10': {
-    username: 'garcciassaul7@gmail.com',
-    password: 'PLAN-10-ACTIVO',
-    label: 'Starter Pack 10',
-    quota: 10,
-  },
-  '30': {
-    username: 'creador30@conexionprompts.com',
-    password: 'PLAN-30-ACTIVO',
-    label: 'Creador Básico 30',
-    quota: 30,
-  },
-  '50': {
-    username: 'pro50@conexionprompts.com',
-    password: 'PLAN-50-PRO',
-    label: 'Creador Pro 50',
-    quota: 50,
-  },
-  '100': {
-    username: 'business100@conexionprompts.com',
-    password: 'PLAN-100-VIP',
-    label: 'Business Booster 100',
-    quota: 100,
-  },
-  '500': {
-    username: 'agencia500@conexionprompts.com',
-    password: 'PLAN-500-MASTER',
-    label: 'Agencia Master 500',
-    quota: 500,
-  },
-  '1000': {
-    username: 'enterprise1000@conexionprompts.com',
-    password: 'PLAN-1000-CORP',
-    label: 'VIP Enterprise 1000',
-    quota: 1000,
-  },
-};
-
 export const PricingPage: React.FC<PricingPageProps> = ({
   subscription,
   onUpdateSubscription,
 }) => {
   const [tierCategoryFilter, setTierCategoryFilter] = useState<'all' | 'creators' | 'agencies'>('all');
-  const [email, setEmail] = useState<string>('garcciassaul7@gmail.com');
+  const [email, setEmail] = useState<string>('garciasaul@hotmail.com');
   const [checking, setChecking] = useState<boolean>(false);
   const [result, setResult] = useState<{ ok: boolean; text: string } | null>(null);
 
-  // Per-plan access panel state (pre-filled with username and password for each plan)
-  const [openAccessTierId, setOpenAccessTierId] = useState<string | null>('10');
-  const [credentialsByTier, setCredentialsByTier] = useState<
-    Record<string, { username: string; password: string }>
-  >(() => {
-    const initial: Record<string, { username: string; password: string }> = {};
-    for (const [tierId, cred] of Object.entries(PLAN_CREDENTIALS)) {
-      initial[tierId] = { username: cred.username, password: cred.password };
-    }
-    return initial;
-  });
-  const [showPasswordByTier, setShowPasswordByTier] = useState<Record<string, boolean>>({});
-  const [cardNoticeByTier, setCardNoticeByTier] = useState<
-    Record<string, { ok: boolean; text: string }>
-  >({});
+  // Secure Admin Modal state - credentials are NEVER exposed in plain text in the public UI
+  const [adminModalTierId, setAdminModalTierId] = useState<string | null>(null);
+  const [adminUsername, setAdminUsername] = useState<string>('');
+  const [adminPassword, setAdminPassword] = useState<string>('');
+  const [showAdminPassword, setShowAdminPassword] = useState<boolean>(false);
+  const [adminAuthNotice, setAdminAuthNotice] = useState<{ ok: boolean; text: string } | null>(null);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -150,7 +92,7 @@ export const PricingPage: React.FC<PricingPageProps> = ({
           });
           setResult({
             ok: true,
-            text: `¡Listo! Plan ${matchedTier.name} activo: ${matchedTier.promptsCount} prompts al mes.`,
+            text: `¡Listo! Pago verificado en PayPal. Plan ${matchedTier.name} activo: ${matchedTier.promptsCount} prompts al mes.`,
           });
           const cleanUrl = window.location.pathname;
           window.history.replaceState({}, '', cleanUrl);
@@ -159,52 +101,52 @@ export const PricingPage: React.FC<PricingPageProps> = ({
     }
   }, [onUpdateSubscription]);
 
-  const handleToggleAccessPanel = (tierId: string) => {
-    setOpenAccessTierId((prev) => (prev === tierId ? null : tierId));
-    setCredentialsByTier((prev) => {
-      const defaults = PLAN_CREDENTIALS[tierId] || {
-        username: `plan${tierId}@conexionprompts.com`,
-        password: `PLAN-${tierId}-ACTIVO`,
-      };
-      const curr = prev[tierId];
-      if (!curr || (!curr.username && !curr.password)) {
-        return {
-          ...prev,
-          [tierId]: { username: defaults.username, password: defaults.password },
-        };
-      }
-      return prev;
-    });
+  const handleOpenAdminModal = (tierId: string) => {
+    setAdminModalTierId(tierId);
+    setAdminUsername('');
+    setAdminPassword('');
+    setShowAdminPassword(false);
+    setAdminAuthNotice(null);
   };
 
-  const handleActivateWithCredentials = (
-    tierId: string,
-    tierName: string,
-    promptsCount: number
-  ) => {
-    const creds = credentialsByTier[tierId] || PLAN_CREDENTIALS[tierId];
-    const userVal = (creds?.username || '').trim();
-    const passVal = (creds?.password || '').trim();
+  const handleCloseAdminModal = () => {
+    setAdminModalTierId(null);
+    setAdminUsername('');
+    setAdminPassword('');
+    setShowAdminPassword(false);
+    setAdminAuthNotice(null);
+  };
 
-    if (!userVal || !passVal) {
-      setCardNoticeByTier((prev) => ({
-        ...prev,
-        [tierId]: { ok: false, text: 'Ingresa usuario y password para activar el plan.' },
-      }));
+  const handleExecuteAdminUnlock = () => {
+    if (!adminModalTierId) return;
+
+    const validation = validateAdminCredentials(
+      adminUsername,
+      adminPassword,
+      adminModalTierId
+    );
+
+    if (!validation.success) {
+      setAdminAuthNotice({ ok: false, text: validation.message });
       return;
     }
 
-    onUpdateSubscription(tierId, 'active', {
-      paymentMethod: tierId === 'free' ? undefined : 'paypal',
-      monthlyPromptQuota: promptsCount,
+    const targetTier = PRICING_TIERS.find((t) => t.id === validation.tierId) ||
+      PRICING_TIERS.find((t) => t.id === adminModalTierId) ||
+      PRICING_TIERS[3];
+
+    onUpdateSubscription(targetTier.id, 'active', {
+      paymentMethod: 'paypal',
+      monthlyPromptQuota: validation.quota || targetTier.promptsCount,
     });
 
-    const successMsg = `¡Acceso activado! ${tierName} (${promptsCount} prompts/mes) activo para ${userVal}.`;
-    setCardNoticeByTier((prev) => ({
-      ...prev,
-      [tierId]: { ok: true, text: successMsg },
-    }));
-    setResult({ ok: true, text: successMsg });
+    setAdminAuthNotice({ ok: true, text: validation.message });
+    setResult({ ok: true, text: validation.message });
+
+    // Auto close modal after brief delay
+    setTimeout(() => {
+      handleCloseAdminModal();
+    }, 1200);
   };
 
   const activateByEmail = async () => {
@@ -216,7 +158,7 @@ export const PricingPage: React.FC<PricingPageProps> = ({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           payerEmail: email.trim(),
-          tierId: openAccessTierId && openAccessTierId !== 'free' ? openAccessTierId : '10',
+          tierId: subscription.planType !== 'free' ? subscription.planType : '50',
         }),
       });
       const data = await res.json();
@@ -245,37 +187,64 @@ export const PricingPage: React.FC<PricingPageProps> = ({
     }
   };
 
+  const currentPlanTier = PRICING_TIERS.find((t) => t.id === subscription.planType);
+  const activeAdminTier = adminModalTierId
+    ? PRICING_TIERS.find((t) => t.id === adminModalTierId)
+    : null;
+
   return (
     <div className="space-y-12 pb-16 max-w-6xl mx-auto">
+      {/* Header Banner */}
       <div className="text-center space-y-4 max-w-2xl mx-auto">
+        <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-amber-50 text-amber-800 border border-amber-300 text-xs font-bold uppercase tracking-wider">
+          <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+          <span>Pagos Seguros Directos a PayPal</span>
+        </div>
         <h1 className="text-3xl sm:text-5xl font-black text-slate-900 tracking-tight leading-tight">
           Elige tu Plan y <span className="text-amber-500">Suscríbete</span>
         </h1>
         <p className="text-slate-600 text-sm font-medium">
-          Pago seguro y activación inmediata. Cancela cuando quieras.
+          Pagos procesados 100% directos a PayPal. Activación inmediata y cancelación cuando quieras.
         </p>
       </div>
 
+      {/* Subscription Status & Verification Card */}
       <div className="rounded-3xl bg-white border border-slate-200 p-6 space-y-3 shadow-xs">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <p className="text-sm font-extrabold text-slate-900">
-            Plan actual: <span className="uppercase text-indigo-600">{String(subscription.planType)}</span> (
-            {subscription.status}) · Cuota: {subscription.usedPromptsThisMonth} /{' '}
+            Plan actual:{' '}
+            <span className="uppercase text-indigo-600">
+              {currentPlanTier?.name || String(subscription.planType)}
+            </span>{' '}
+            ({subscription.status}) · Cuota: {subscription.usedPromptsThisMonth} /{' '}
             {subscription.monthlyPromptQuota} prompts este mes.
           </p>
-          <span className="text-[11px] font-bold px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
-            ✓ Credenciales de acceso listas en cada plan
-          </span>
+          <div className="flex items-center gap-2">
+            <span className="text-[11px] font-bold px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1">
+              <ShieldCheck className="w-3.5 h-3.5" />
+              <span>Pagos Reales con PayPal</span>
+            </span>
+            <button
+              type="button"
+              onClick={() => handleOpenAdminModal('50')}
+              className="text-[11px] font-bold px-3 py-1 rounded-full bg-slate-900 hover:bg-slate-800 text-amber-300 transition-colors flex items-center gap-1 cursor-pointer"
+            >
+              <KeyRound className="w-3 h-3 text-amber-400" />
+              <span>Acceso Administrador</span>
+            </button>
+          </div>
         </div>
+
         <p className="text-xs text-slate-600">
-          ¿Ya realizaste tu pago? Escribe el correo con el que compraste o pulsa el botón <strong>Acceso</strong> en cualquiera de los planes de abajo (con usuario y password ya escritos) y haz clic en <strong>Activar</strong>.
+          ¿Ya realizaste tu compra o actualización en PayPal? Escribe el correo con el que pagaste para reactivar tu plan de inmediato.
         </p>
+
         <div className="flex flex-col sm:flex-row gap-2">
           <input
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            placeholder="correo-de-tu-compra@email.com"
+            placeholder="correo-de-tu-cuenta-paypal@email.com"
             className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-mono focus:outline-none focus:border-indigo-500"
           />
           <button
@@ -285,9 +254,10 @@ export const PricingPage: React.FC<PricingPageProps> = ({
             className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold disabled:opacity-50 inline-flex items-center justify-center gap-2 cursor-pointer"
           >
             {checking && <RefreshCw className="w-3.5 h-3.5 animate-spin" />}
-            Activar mi plan
+            Verificar en PayPal
           </button>
         </div>
+
         {result && (
           <p
             className={`text-xs font-bold flex items-center gap-1.5 ${
@@ -304,9 +274,10 @@ export const PricingPage: React.FC<PricingPageProps> = ({
         )}
       </div>
 
+      {/* Filter Tabs */}
       <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
         <h2 className="text-xl sm:text-2xl font-extrabold text-slate-900">
-          Elige el plan que mejor impulsa tus ganancias
+          Planes Disponibles
         </h2>
         <div className="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200 text-xs font-bold">
           {(
@@ -331,6 +302,7 @@ export const PricingPage: React.FC<PricingPageProps> = ({
         </div>
       </div>
 
+      {/* Pricing Cards Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
         {PRICING_TIERS.filter((tier) => {
           if (tierCategoryFilter === 'creators') return ['free', '10', '30', '50'].includes(tier.id);
@@ -340,14 +312,6 @@ export const PricingPage: React.FC<PricingPageProps> = ({
           const price = Math.round(tier.monthlyBasePrice);
           const isCurrent = subscription.planType === tier.id;
           const isFeatured = tier.popular || tier.id === '50';
-          const isAccessOpen = openAccessTierId === tier.id;
-          const tierCreds = credentialsByTier[tier.id] ||
-            PLAN_CREDENTIALS[tier.id] || {
-              username: `plan${tier.id}@conexionprompts.com`,
-              password: `PLAN-${tier.id}-ACTIVO`,
-            };
-          const showPass = showPasswordByTier[tier.id] ?? true;
-          const cardNotice = cardNoticeByTier[tier.id];
 
           const checkoutUrl = buildDirectPayPalCheckoutUrl({
             tierId: tier.id,
@@ -412,14 +376,15 @@ export const PricingPage: React.FC<PricingPageProps> = ({
                 </ul>
               </div>
 
-              <div className="pt-3 border-t border-slate-100 mt-auto space-y-2.5">
+              {/* Action Buttons: Real PayPal Subscription + Discrete Admin Unlock */}
+              <div className="pt-3 border-t border-slate-100 mt-auto space-y-2">
                 {tier.id === 'free' ? (
                   <button
                     disabled={isCurrent}
-                    onClick={() => handleToggleAccessPanel(tier.id)}
+                    onClick={() => onUpdateSubscription('free', 'active', { monthlyPromptQuota: 5 })}
                     className="w-full py-2.5 rounded-xl border border-slate-200 text-slate-600 font-bold text-xs cursor-pointer disabled:opacity-60"
                   >
-                    {isCurrent ? 'Plan actual (5 prompts)' : 'Incluido gratis'}
+                    {isCurrent ? 'Plan actual (5 prompts)' : 'Activar Modo Free'}
                   </button>
                 ) : (
                   <a
@@ -433,141 +398,133 @@ export const PricingPage: React.FC<PricingPageProps> = ({
                   </a>
                 )}
 
-                {/* Botón Acceso en cada plan */}
-                <button
-                  type="button"
-                  onClick={() => handleToggleAccessPanel(tier.id)}
-                  className={`w-full py-2.5 px-4 rounded-xl font-extrabold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer border ${
-                    isAccessOpen
-                      ? 'bg-slate-900 text-amber-300 border-slate-900 shadow-md'
-                      : isCurrent
-                      ? 'bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-600'
-                      : 'bg-slate-100 hover:bg-slate-200 text-slate-800 border-slate-300'
-                  }`}
-                >
-                  <KeyRound className="w-3.5 h-3.5 shrink-0" />
-                  <span>
-                    {isAccessOpen
-                      ? 'Ocultar Acceso'
-                      : isCurrent
-                      ? 'Acceso Activo (Ver Usuario y Password)'
-                      : 'Acceso • Activar con Usuario y Password'}
-                  </span>
-                </button>
-
-                {/* Panel de Acceso con Usuario y Password ya escritos */}
-                {isAccessOpen && (
-                  <div className="mt-2 p-3.5 rounded-2xl bg-slate-900 text-white border border-slate-800 space-y-3 shadow-inner">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[11px] font-extrabold text-amber-400 uppercase tracking-wider flex items-center gap-1">
-                        <KeyRound className="w-3 h-3" /> Acceso Directo • {tier.name}
-                      </span>
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                        Pre-llenado
-                      </span>
-                    </div>
-
-                    <div className="space-y-2">
-                      <div>
-                        <label className="block text-[10px] font-bold text-slate-300 mb-1">
-                          Usuario / Correo:
-                        </label>
-                        <div className="relative flex items-center">
-                          <User className="w-3.5 h-3.5 text-slate-400 absolute left-3 pointer-events-none" />
-                          <input
-                            type="text"
-                            value={tierCreds.username}
-                            onChange={(e) =>
-                              setCredentialsByTier((prev) => ({
-                                ...prev,
-                                [tier.id]: {
-                                  ...tierCreds,
-                                  username: e.target.value,
-                                },
-                              }))
-                            }
-                            className="w-full pl-8 pr-3 py-2 rounded-xl bg-slate-800 border border-slate-700 text-xs font-mono text-white focus:outline-none focus:border-amber-400"
-                          />
-                        </div>
-                      </div>
-
-                      <div>
-                        <label className="block text-[10px] font-bold text-slate-300 mb-1">
-                          Password / Clave de Acceso:
-                        </label>
-                        <div className="relative flex items-center">
-                          <Lock className="w-3.5 h-3.5 text-slate-400 absolute left-3 pointer-events-none" />
-                          <input
-                            type={showPass ? 'text' : 'password'}
-                            value={tierCreds.password}
-                            onChange={(e) =>
-                              setCredentialsByTier((prev) => ({
-                                ...prev,
-                                [tier.id]: {
-                                  ...tierCreds,
-                                  password: e.target.value,
-                                },
-                              }))
-                            }
-                            className="w-full pl-8 pr-9 py-2 rounded-xl bg-slate-800 border border-slate-700 text-xs font-mono text-amber-300 font-bold focus:outline-none focus:border-amber-400"
-                          />
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setShowPasswordByTier((prev) => ({
-                                ...prev,
-                                [tier.id]: !showPass,
-                              }))
-                            }
-                            className="absolute right-2.5 text-slate-400 hover:text-white cursor-pointer"
-                            title={showPass ? 'Ocultar password' : 'Mostrar password'}
-                          >
-                            {showPass ? (
-                              <EyeOff className="w-3.5 h-3.5" />
-                            ) : (
-                              <Eye className="w-3.5 h-3.5" />
-                            )}
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={() =>
-                        handleActivateWithCredentials(tier.id, tier.name, tier.promptsCount)
-                      }
-                      className="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-black text-xs flex items-center justify-center gap-1.5 shadow-md shadow-emerald-500/20 cursor-pointer transition-all"
-                    >
-                      <Zap className="w-3.5 h-3.5 fill-current" />
-                      <span>
-                        Activar {tier.name} ({tier.promptsCount} Prompts)
-                      </span>
-                    </button>
-
-                    {cardNotice && (
-                      <div
-                        className={`p-2 rounded-xl text-[11px] font-bold flex items-center gap-1.5 ${
-                          cardNotice.ok
-                            ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
-                            : 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
-                        }`}
-                      >
-                        {cardNotice.ok ? (
-                          <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
-                        ) : (
-                          <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-                        )}
-                        <span>{cardNotice.text}</span>
-                      </div>
-                    )}
-                  </div>
+                {/* Secure Admin Unlock Button - Does NOT expose credentials */}
+                {tier.id !== 'free' && (
+                  <button
+                    type="button"
+                    onClick={() => handleOpenAdminModal(tier.id)}
+                    className="w-full py-2 px-3 rounded-xl text-[11px] font-bold text-slate-700 hover:text-slate-950 hover:bg-slate-100 border border-slate-200 flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                  >
+                    <KeyRound className="w-3 h-3 text-slate-500" />
+                    <span>Acceso Administrador</span>
+                  </button>
                 )}
               </div>
             </div>
           );
         })}
       </div>
+
+      {/* Modal Seguro de Desbloqueo Administrador (Sin mostrar datos de activación) */}
+      {adminModalTierId && activeAdminTier && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/75 backdrop-blur-sm animate-fade-in">
+          <div className="relative w-full max-w-md bg-white rounded-3xl border border-slate-200 shadow-2xl overflow-hidden p-6 sm:p-7 space-y-5">
+            <button
+              onClick={handleCloseAdminModal}
+              className="absolute top-4 right-4 p-2 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 transition-colors cursor-pointer"
+            >
+              <X className="w-4 h-4" />
+            </button>
+
+            <div className="flex items-center space-x-3">
+              <div className="p-3 rounded-2xl bg-amber-500/10 text-amber-600 border border-amber-300/30">
+                <ShieldCheck className="w-6 h-6" />
+              </div>
+              <div>
+                <span className="text-[10px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 border border-amber-300 inline-block">
+                  Autenticación de Administrador
+                </span>
+                <h3 className="text-lg font-black text-slate-900 mt-0.5">
+                  Desbloquear {activeAdminTier.name}
+                </h3>
+              </div>
+            </div>
+
+            <p className="text-xs text-slate-600 leading-relaxed">
+              Ingresa tus credenciales de administrador para desbloquear y activar este plan ({activeAdminTier.promptsCount} prompts/mes). Tus datos se mantienen privados y encriptados.
+            </p>
+
+            <div className="space-y-3 pt-1">
+              <div>
+                <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                  Usuario o Correo de Administrador:
+                </label>
+                <div className="relative flex items-center">
+                  <User className="w-4 h-4 text-slate-400 absolute left-3 pointer-events-none" />
+                  <input
+                    type="text"
+                    value={adminUsername}
+                    onChange={(e) => setAdminUsername(e.target.value)}
+                    placeholder="usuario@dominio.com"
+                    autoFocus
+                    className="w-full pl-9 pr-3 py-2.5 rounded-xl bg-slate-50 border border-slate-300 text-xs font-mono text-slate-900 focus:outline-none focus:border-indigo-600 focus:bg-white"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                  Password de Activación:
+                </label>
+                <div className="relative flex items-center">
+                  <Lock className="w-4 h-4 text-slate-400 absolute left-3 pointer-events-none" />
+                  <input
+                    type={showAdminPassword ? 'text' : 'password'}
+                    value={adminPassword}
+                    onChange={(e) => setAdminPassword(e.target.value)}
+                    placeholder="••••••••••••••"
+                    className="w-full pl-9 pr-9 py-2.5 rounded-xl bg-slate-50 border border-slate-300 text-xs font-mono text-slate-900 focus:outline-none focus:border-indigo-600 focus:bg-white"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowAdminPassword(!showAdminPassword)}
+                    className="absolute right-2.5 text-slate-400 hover:text-slate-600 cursor-pointer"
+                    title={showAdminPassword ? 'Ocultar password' : 'Ver password'}
+                  >
+                    {showAdminPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {adminAuthNotice && (
+              <div
+                className={`p-3 rounded-xl text-xs font-bold flex items-center gap-2 ${
+                  adminAuthNotice.ok
+                    ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                    : 'bg-rose-50 text-rose-800 border border-rose-200'
+                }`}
+              >
+                {adminAuthNotice.ok ? (
+                  <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600" />
+                ) : (
+                  <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
+                )}
+                <span>{adminAuthNotice.text}</span>
+              </div>
+            )}
+
+            <div className="pt-2 flex flex-col sm:flex-row gap-2">
+              <button
+                type="button"
+                onClick={handleExecuteAdminUnlock}
+                className="flex-1 py-3 px-4 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-black text-xs flex items-center justify-center gap-2 shadow-md cursor-pointer transition-all"
+              >
+                <Zap className="w-4 h-4 fill-current" />
+                <span>Desbloquear y Activar Plan</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleCloseAdminModal}
+                className="py-3 px-4 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs cursor-pointer transition-all"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

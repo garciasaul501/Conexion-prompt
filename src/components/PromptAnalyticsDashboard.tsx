@@ -25,6 +25,9 @@ import {
   ArrowUpRight,
   Layers,
   ShieldCheck,
+  Calendar,
+  BarChart3,
+  Flame,
 } from 'lucide-react';
 import {
   Prompt,
@@ -35,6 +38,19 @@ import {
   INITIAL_PROMPT_ANALYTICS_HISTORY,
   INITIAL_EXECUTION_TELEMETRY,
 } from '../data/mockDatabase';
+
+export interface DailyExecutionFrequencyPoint {
+  dateStr: string;
+  dateLabel: string;
+  dayIndex: number; // 1 to 30
+  dayOfWeek: string;
+  executions: number;
+  successful: number;
+  failed: number;
+  cumulative: number;
+  isPeak: boolean;
+  isToday: boolean;
+}
 
 interface PromptAnalyticsDashboardProps {
   prompts: Prompt[];
@@ -86,6 +102,114 @@ export const PromptAnalyticsDashboard: React.FC<PromptAnalyticsDashboardProps> =
     () => prompts.find((p) => p.id === selectedPromptId) || null,
     [prompts, selectedPromptId]
   );
+
+  const [frequencyViewMode, setFrequencyViewMode] = useState<'total' | 'split' | 'cumulative'>('total');
+  const [liveBenchmarkRuns, setLiveBenchmarkRuns] = useState<number>(0);
+
+  // Generate responsive 30-day prompt execution frequency data
+  const thirtyDaysExecutionData = useMemo(() => {
+    const points: DailyExecutionFrequencyPoint[] = [];
+    const now = new Date();
+
+    const totalCatalogUses = prompts.reduce((sum, p) => sum + (p.usesCount || 0), 0) || 1500;
+    const isAll = selectedPromptId === 'all';
+    const targetPrompt = !isAll ? prompts.find((p) => p.id === selectedPromptId) : null;
+
+    // Scale base volume
+    const baseVolume = isAll
+      ? 54
+      : Math.max(7, Math.round(((targetPrompt?.usesCount || 75) / totalCatalogUses) * 54 * Math.min(6, prompts.length)));
+
+    // Deterministic seed
+    const seed = (selectedPromptId || 'all').split('').reduce((acc, c) => acc + c.charCodeAt(0), 0);
+
+    let runningTotal = 0;
+    let maxExec = 0;
+    let peakIndex = -1;
+
+    for (let i = 29; i >= 0; i--) {
+      const d = new Date(now.getTime() - i * 24 * 60 * 60 * 1000);
+      const dayOfMonth = d.getDate();
+      const monthShort = d.toLocaleDateString('es-ES', { month: 'short' }).replace('.', '');
+      const dateLabel = `${dayOfMonth < 10 ? '0' : ''}${dayOfMonth} ${monthShort.charAt(0).toUpperCase() + monthShort.slice(1)}`;
+      const dayOfWeek = d.toLocaleDateString('es-ES', { weekday: 'short' });
+      const isWeekend = d.getDay() === 0 || d.getDay() === 6;
+
+      // Organic trend: upward trajectory across 30 days + weekly rhythm
+      const progress = (29 - i) / 29;
+      const trendFactor = 0.82 + progress * 0.38;
+      const weekendMultiplier = isWeekend ? 0.70 : 1.15;
+
+      // Pseudo-random deterministic daily variance
+      const noise = Math.sin((dayOfMonth + seed) * 1.5) * 0.2 + Math.cos((i + seed) * 2.1) * 0.12;
+
+      let dayExecutions = Math.max(
+        4,
+        Math.round(baseVolume * trendFactor * weekendMultiplier * (1 + noise))
+      );
+
+      // If today (i === 0), add any live benchmark runs
+      if (i === 0 && liveBenchmarkRuns > 0) {
+        dayExecutions += liveBenchmarkRuns;
+      }
+
+      if (dayExecutions > maxExec) {
+        maxExec = dayExecutions;
+        peakIndex = 29 - i;
+      }
+
+      const failed = Math.max(0, Math.round(dayExecutions * 0.018 + (dayOfMonth % 6 === 0 ? 1 : 0)));
+      const successful = Math.max(1, dayExecutions - failed);
+      runningTotal += dayExecutions;
+
+      points.push({
+        dateStr: d.toISOString().split('T')[0],
+        dateLabel,
+        dayIndex: 30 - i,
+        dayOfWeek,
+        executions: dayExecutions,
+        successful,
+        failed,
+        cumulative: runningTotal,
+        isPeak: false,
+        isToday: i === 0,
+      });
+    }
+
+    if (peakIndex >= 0 && points[peakIndex]) {
+      points[peakIndex].isPeak = true;
+    }
+
+    return points;
+  }, [prompts, selectedPromptId, liveBenchmarkRuns]);
+
+  const thirtyDaysStats = useMemo(() => {
+    const total = thirtyDaysExecutionData.reduce((acc, p) => acc + p.executions, 0);
+    const totalSuccessful = thirtyDaysExecutionData.reduce((acc, p) => acc + p.successful, 0);
+    const avgDaily = Number((total / 30).toFixed(1));
+    const peakPoint = thirtyDaysExecutionData.reduce(
+      (max, p) => (p.executions > max.executions ? p : max),
+      thirtyDaysExecutionData[0] || { executions: 0, dateLabel: 'N/A' }
+    );
+
+    const firstHalf = thirtyDaysExecutionData.slice(0, 15).reduce((acc, p) => acc + p.executions, 0);
+    const secondHalf = thirtyDaysExecutionData.slice(15, 30).reduce((acc, p) => acc + p.executions, 0);
+    const growthPct = firstHalf > 0 ? Math.round(((secondHalf - firstHalf) / firstHalf) * 100) : 28;
+    const reliabilityPct = total > 0 ? ((totalSuccessful / total) * 100).toFixed(1) : '99.1';
+
+    const startDateLabel = thirtyDaysExecutionData[0]?.dateLabel || 'Día 1';
+    const endDateLabel = thirtyDaysExecutionData[thirtyDaysExecutionData.length - 1]?.dateLabel || 'Hoy';
+
+    return {
+      total,
+      totalSuccessful,
+      avgDaily,
+      peakPoint,
+      growthPct,
+      reliabilityPct,
+      dateRangeLabel: `${startDateLabel} - ${endDateLabel}`,
+    };
+  }, [thirtyDaysExecutionData]);
 
   // Compute prompt-specific or global time-series adjustments so switching prompts dynamically updates curves
   const displayedChartData = useMemo(() => {
@@ -195,6 +319,7 @@ export const PromptAnalyticsDashboard: React.FC<PromptAnalyticsDashboardProps> =
     const updatedSeries = [...seriesData.slice(-9), newPoint];
     setSeriesData(updatedSeries);
     setTelemetryLogs((prev) => [newLog, ...prev.slice(0, 7)]);
+    setLiveBenchmarkRuns((prev) => prev + 1);
 
     try {
       localStorage.setItem('saul_prompt_analytics_series_v1', JSON.stringify(updatedSeries));
@@ -210,11 +335,70 @@ export const PromptAnalyticsDashboard: React.FC<PromptAnalyticsDashboardProps> =
   const handleResetAnalytics = () => {
     setSeriesData(INITIAL_PROMPT_ANALYTICS_HISTORY);
     setTelemetryLogs(INITIAL_EXECUTION_TELEMETRY);
+    setLiveBenchmarkRuns(0);
     try {
       localStorage.removeItem('saul_prompt_analytics_series_v1');
     } catch (e) {
       console.error(e);
     }
+  };
+
+  // Custom Tooltip for the 30-Day Execution Frequency LineChart
+  const CustomFrequencyTooltip = ({ active, payload }: any) => {
+    if (active && payload && payload.length) {
+      const pt = payload[0].payload as DailyExecutionFrequencyPoint;
+      return (
+        <div className="bg-slate-900 text-white p-3.5 rounded-2xl shadow-2xl border border-slate-700 text-xs space-y-2 min-w-[240px]">
+          <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+            <div className="flex items-center space-x-1.5 font-bold text-amber-300">
+              <Calendar className="w-3.5 h-3.5 text-amber-400" />
+              <span>{pt.dateLabel} ({pt.dayOfWeek})</span>
+            </div>
+            {pt.isToday ? (
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
+                Hoy • En Vivo
+              </span>
+            ) : pt.isPeak ? (
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                Pico 30d
+              </span>
+            ) : (
+              <span className="text-[10px] text-slate-400 font-mono">Día {pt.dayIndex}/30</span>
+            )}
+          </div>
+
+          <div className="space-y-1.5 pt-0.5">
+            <div className="flex items-center justify-between">
+              <span className="text-slate-300 font-medium">Frecuencia de ejecuciones:</span>
+              <span className="font-black text-indigo-400 font-mono text-sm">
+                {pt.executions} ejecuciones
+              </span>
+            </div>
+            <div className="flex items-center justify-between text-[11px]">
+              <span className="text-emerald-400 font-medium flex items-center space-x-1">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" />
+                <span>Ejecuciones exitosas:</span>
+              </span>
+              <span className="font-bold text-emerald-300 font-mono">{pt.successful}</span>
+            </div>
+            {pt.failed > 0 && (
+              <div className="flex items-center justify-between text-[11px]">
+                <span className="text-rose-400 font-medium flex items-center space-x-1">
+                  <span className="w-2 h-2 rounded-full bg-rose-500 inline-block" />
+                  <span>Reintentos / avisos:</span>
+                </span>
+                <span className="font-bold text-rose-300 font-mono">{pt.failed}</span>
+              </div>
+            )}
+            <div className="flex items-center justify-between text-[11px] pt-1.5 border-t border-slate-800 text-slate-400">
+              <span>Volumen acumulado (30d):</span>
+              <span className="font-bold text-indigo-300 font-mono">{pt.cumulative} total</span>
+            </div>
+          </div>
+        </div>
+      );
+    }
+    return null;
   };
 
   // Custom Tooltip for the LineChart
@@ -423,6 +607,225 @@ export const PromptAnalyticsDashboard: React.FC<PromptAnalyticsDashboardProps> =
             Latencia (ms)
           </button>
         </div>
+      </div>
+
+      {/* 30-Day Prompt Execution Frequency Line Chart Card */}
+      <div className="bg-slate-50/80 border border-slate-200 rounded-2xl p-5 sm:p-6 space-y-5 shadow-xs">
+        {/* Top Header of the 30-Day Frequency Section */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-slate-200/80 pb-4">
+          <div className="space-y-1">
+            <div className="flex items-center space-x-2">
+              <span className="p-1.5 rounded-lg bg-indigo-100 text-indigo-700">
+                <BarChart3 className="w-4 h-4" />
+              </span>
+              <h3 className="text-base sm:text-lg font-black text-slate-900 tracking-tight">
+                Frecuencia de Ejecución de Prompts (Últimos 30 Días)
+              </h3>
+              <span className="px-2.5 py-0.5 rounded-full text-[11px] font-extrabold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                {thirtyDaysStats.dateRangeLabel}
+              </span>
+            </div>
+            <p className="text-xs text-slate-500">
+              {selectedPrompt
+                ? `Frecuencia y volumen diario de ejecuciones registrado para "${selectedPrompt.title}"`
+                : 'Frecuencia consolidada de ejecuciones diarias de todos los prompts de la plataforma'}
+            </p>
+          </div>
+
+          {/* Metric View Selector */}
+          <div className="bg-slate-200/80 p-1 rounded-xl flex items-center space-x-1 text-xs font-bold self-start md:self-auto shrink-0">
+            <button
+              onClick={() => setFrequencyViewMode('total')}
+              className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
+                frequencyViewMode === 'total'
+                  ? 'bg-white text-indigo-700 shadow-xs font-extrabold'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              Frecuencia Diaria
+            </button>
+            <button
+              onClick={() => setFrequencyViewMode('split')}
+              className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
+                frequencyViewMode === 'split'
+                  ? 'bg-white text-emerald-700 shadow-xs font-extrabold'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              Exitosas vs Reintentos
+            </button>
+            <button
+              onClick={() => setFrequencyViewMode('cumulative')}
+              className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
+                frequencyViewMode === 'cumulative'
+                  ? 'bg-white text-purple-700 shadow-xs font-extrabold'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              Volumen Acumulado
+            </button>
+          </div>
+        </div>
+
+        {/* 4 Quick Stat Badges for 30-Day Window */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <div className="p-3.5 rounded-xl bg-white border border-slate-200 space-y-1">
+            <div className="flex items-center justify-between text-[11px] font-bold text-slate-500">
+              <span>Total 30 Días</span>
+              <Activity className="w-3.5 h-3.5 text-indigo-500" />
+            </div>
+            <div className="text-xl sm:text-2xl font-black text-slate-900">
+              {thirtyDaysStats.total.toLocaleString('es-ES')}
+            </div>
+            <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded">
+              +{thirtyDaysStats.growthPct}% vs quincena anterior
+            </span>
+          </div>
+
+          <div className="p-3.5 rounded-xl bg-white border border-slate-200 space-y-1">
+            <div className="flex items-center justify-between text-[11px] font-bold text-slate-500">
+              <span>Promedio Diario</span>
+              <Clock className="w-3.5 h-3.5 text-amber-500" />
+            </div>
+            <div className="text-xl sm:text-2xl font-black text-slate-900">
+              {thirtyDaysStats.avgDaily}
+            </div>
+            <span className="text-[10px] text-slate-500">ejecuciones por día</span>
+          </div>
+
+          <div className="p-3.5 rounded-xl bg-white border border-slate-200 space-y-1">
+            <div className="flex items-center justify-between text-[11px] font-bold text-slate-500">
+              <span>Día Pico Máximo</span>
+              <Flame className="w-3.5 h-3.5 text-amber-500" />
+            </div>
+            <div className="text-xl sm:text-2xl font-black text-slate-900">
+              {thirtyDaysStats.peakPoint.executions}
+            </div>
+            <span className="text-[10px] font-bold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded">
+              {thirtyDaysStats.peakPoint.dateLabel} ({thirtyDaysStats.peakPoint.dayOfWeek})
+            </span>
+          </div>
+
+          <div className="p-3.5 rounded-xl bg-white border border-slate-200 space-y-1">
+            <div className="flex items-center justify-between text-[11px] font-bold text-slate-500">
+              <span>Fiabilidad Global</span>
+              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+            </div>
+            <div className="text-xl sm:text-2xl font-black text-emerald-700">
+              {thirtyDaysStats.reliabilityPct}%
+            </div>
+            <span className="text-[10px] text-slate-500">
+              {thirtyDaysStats.totalSuccessful} exitosas
+            </span>
+          </div>
+        </div>
+
+        {/* Recharts LineChart for 30-Day Execution Frequency */}
+        <div className="w-full bg-white p-4 rounded-xl border border-slate-200">
+          <div className="h-72 sm:h-80 w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart
+                data={thirtyDaysExecutionData}
+                margin={{ top: 15, right: 25, left: -10, bottom: 5 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+                <XAxis
+                  dataKey="dateLabel"
+                  stroke="#64748b"
+                  fontSize={11}
+                  fontWeight={600}
+                  tickLine={false}
+                  interval={2}
+                />
+                <YAxis
+                  stroke="#64748b"
+                  fontSize={11}
+                  fontWeight={600}
+                  tickLine={false}
+                  axisLine={false}
+                  allowDecimals={false}
+                />
+                <Tooltip content={<CustomFrequencyTooltip />} />
+                <Legend
+                  wrapperStyle={{ paddingTop: '12px', fontSize: '12px', fontWeight: 700 }}
+                />
+                {frequencyViewMode !== 'cumulative' && (
+                  <ReferenceLine
+                    y={thirtyDaysStats.avgDaily}
+                    stroke="#818cf8"
+                    strokeDasharray="4 4"
+                    label={{
+                      value: `Promedio: ${thirtyDaysStats.avgDaily}/d`,
+                      position: 'insideTopRight',
+                      fill: '#4f46e5',
+                      fontSize: 11,
+                      fontWeight: 700,
+                    }}
+                  />
+                )}
+
+                {frequencyViewMode === 'total' && (
+                  <Line
+                    type="monotone"
+                    dataKey="executions"
+                    name="Frecuencia Diaria de Ejecuciones"
+                    stroke="#6366f1"
+                    strokeWidth={3}
+                    dot={{ r: 3, fill: '#6366f1' }}
+                    activeDot={{ r: 6, fill: '#4338ca', stroke: '#c7d2fe', strokeWidth: 2 }}
+                  />
+                )}
+
+                {frequencyViewMode === 'split' && (
+                  <>
+                    <Line
+                      type="monotone"
+                      dataKey="successful"
+                      name="Ejecuciones Exitosas"
+                      stroke="#10b981"
+                      strokeWidth={3}
+                      dot={{ r: 3, fill: '#10b981' }}
+                      activeDot={{ r: 6, fill: '#059669', stroke: '#a7f3d0', strokeWidth: 2 }}
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="failed"
+                      name="Reintentos / Observaciones"
+                      stroke="#f43f5e"
+                      strokeWidth={2}
+                      strokeDasharray="4 4"
+                      dot={{ r: 2.5, fill: '#f43f5e' }}
+                      activeDot={{ r: 5 }}
+                    />
+                  </>
+                )}
+
+                {frequencyViewMode === 'cumulative' && (
+                  <Line
+                    type="monotone"
+                    dataKey="cumulative"
+                    name="Ejecuciones Acumuladas (30 Días)"
+                    stroke="#8b5cf6"
+                    strokeWidth={3.5}
+                    dot={{ r: 3, fill: '#8b5cf6' }}
+                    activeDot={{ r: 6, fill: '#6d28d9', stroke: '#ddd6fe', strokeWidth: 2 }}
+                  />
+                )}
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      </div>
+
+      {/* Subheader for Multi-Version Performance Curves */}
+      <div className="pt-2 border-t border-slate-200">
+        <h3 className="text-base font-extrabold text-slate-900 tracking-tight flex items-center space-x-2">
+          <GitBranch className="w-4 h-4 text-indigo-600" />
+          <span>Curvas de Rendimiento Multi-Versión (v1.0 vs v2.0 vs v3.0)</span>
+        </h3>
+        <p className="text-xs text-slate-500 mt-0.5">
+          Métricas históricas de efectividad y latencia entre diferentes configuraciones del prompt.
+        </p>
       </div>
 
       {/* 4 KPI Summary Cards */}

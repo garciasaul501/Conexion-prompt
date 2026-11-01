@@ -72,7 +72,15 @@ function ensurePromptHasInitialVersion(p: Prompt): Prompt {
 }
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<NavTabType>('pricing');
+  const [activeTab, setActiveTab] = useState<NavTabType>(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('tab') === 'pricing' || params.get('paid') || params.get('plan')) {
+        return 'pricing';
+      }
+    }
+    return 'gallery';
+  });
   const [categories] = useState(INITIAL_CATEGORIES);
   const [prompts, setPrompts] = useState<Prompt[]>(() => {
     try {
@@ -352,6 +360,7 @@ export default function App() {
             onOpenUnlockModal={() => setIsUnlockModalOpen(true)}
             onAddPromptToLibrary={handleAddPromptToLibrary}
             onSwitchPromptVersion={handleSwitchPromptVersion}
+            onNavigateToAnalytics={() => setActiveTab('analytics')}
           />
         )}
 

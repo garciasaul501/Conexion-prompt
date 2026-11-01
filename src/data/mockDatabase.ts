@@ -445,7 +445,7 @@ export const getDefaultThumbnailForCategory = (categoryId?: string): string => {
 
 export const INITIAL_USER_PROFILE: UserProfile = {
   id: 'usr-991',
-  email: 'garciasaul501@gmail.com',
+  email: 'garciasaul@hotmail.com',
   fullName: 'Saúl García',
   avatarUrl: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=150',
   role: 'user',
