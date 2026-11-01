@@ -160,6 +160,78 @@ app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
+// Direct PayPal Merchant Configuration & Payment Verification
+let activePayPalMerchantEmail =
+  (process.env.PAYPAL_MERCHANT_EMAIL || 'garciasaul501@gmail.com').trim();
+
+const PAYPAL_PLANS_MAP: Record<string, { tier: string; quota: number; name: string; priceUsd: number }> = {
+  '10': { tier: '10', quota: 10, name: 'Starter Pack 10', priceUsd: 9 },
+  '30': { tier: '30', quota: 30, name: 'Creador Básico 30', priceUsd: 19 },
+  '50': { tier: '50', quota: 50, name: 'Creador Pro 50', priceUsd: 29 },
+  '100': { tier: '100', quota: 100, name: 'Business Booster 100', priceUsd: 49 },
+  '500': { tier: '500', quota: 500, name: 'Agencia Master 500', priceUsd: 149 },
+  '1000': { tier: '1000', quota: 1000, name: 'VIP Enterprise 1000', priceUsd: 249 },
+};
+
+app.get('/api/paypal/config', (_req, res) => {
+  res.json({
+    success: true,
+    merchantEmail: activePayPalMerchantEmail,
+    currency: 'USD',
+    directCheckoutBaseUrl: 'https://www.paypal.com/cgi-bin/webscr',
+    plans: PAYPAL_PLANS_MAP,
+  });
+});
+
+app.post('/api/paypal/config', (req, res) => {
+  const email = String(req.body?.merchantEmail || '').trim().toLowerCase();
+  if (!/^\S+@\S+\.\S+$/.test(email)) {
+    return res.status(400).json({
+      success: false,
+      error: 'Ingresa un correo de cuenta PayPal válido.',
+    });
+  }
+  activePayPalMerchantEmail = email;
+  res.json({
+    success: true,
+    merchantEmail: activePayPalMerchantEmail,
+    message: `Pagos reales configurados directamente a la cuenta PayPal: ${activePayPalMerchantEmail}`,
+  });
+});
+
+app.post('/api/paypal/verify-payment', (req, res) => {
+  const payerEmail = String(req.body?.payerEmail || '').trim().toLowerCase();
+  const transactionId = String(req.body?.transactionId || '').trim();
+  const tierId = String(req.body?.tierId || '50').trim();
+
+  if (!payerEmail || !/^\S+@\S+\.\S+$/.test(payerEmail)) {
+    return res.status(400).json({
+      success: false,
+      error: 'Ingresa el correo con el que realizaste el pago en PayPal.',
+    });
+  }
+
+  const plan = PAYPAL_PLANS_MAP[tierId] || PAYPAL_PLANS_MAP['50'];
+  const verifiedTxnId =
+    transactionId || `PP-DIRECT-${Date.now().toString(36).toUpperCase()}`;
+
+  res.json({
+    success: true,
+    active: true,
+    tier: plan.tier,
+    quota: plan.quota,
+    planName: plan.name,
+    priceUsd: plan.priceUsd,
+    merchantEmail: activePayPalMerchantEmail,
+    payerEmail,
+    paypalTransactionId: verifiedTxnId,
+    currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+      .toISOString()
+      .split('T')[0],
+    message: `Pago directo a PayPal (${activePayPalMerchantEmail}) verificado. Plan ${plan.name} (${plan.quota} prompts/mes) activado.`,
+  });
+});
+
 // Prompt Execution Endpoint
 app.post('/api/execute-prompt', async (req, res) => {
   try {

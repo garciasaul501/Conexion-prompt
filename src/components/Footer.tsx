@@ -5,11 +5,10 @@ interface FooterProps {
   onNavigateToVerify?: () => void;
 }
 
-export const Footer: React.FC<FooterProps> = ({ onNavigateToVerify }) => {
+export const Footer: React.FC<FooterProps> = () => {
   return (
     <footer className="bg-white border-t border-slate-200 text-slate-500 text-xs py-8 px-4 sm:px-6 lg:px-8 mt-auto">
       <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
-        
         <div className="flex items-center space-x-2">
           <div className="w-6 h-6 rounded-lg bg-amber-50 border border-amber-300 flex items-center justify-center">
             <Sparkles className="w-3.5 h-3.5 text-amber-500" />
@@ -22,22 +21,12 @@ export const Footer: React.FC<FooterProps> = ({ onNavigateToVerify }) => {
         <div className="flex flex-wrap items-center gap-3 text-slate-500 text-[11px]">
           <span className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-800 font-semibold border border-emerald-200">
             <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-            <span>Cuenta Verificada por PayPal</span>
+            <span>Pago Seguro Verificado</span>
           </span>
           <span>•</span>
-          <a
-            href="https://whop.com/@saulmente"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-amber-600 hover:underline font-semibold"
-          >
-            Whop @saulmente (-40% OFF)
-          </a>
-          <span>•</span>
-          <span>Protección al Comprador PayPal SSL 256-bit</span>
+          <span>Protección al Comprador SSL 256-bit</span>
         </div>
       </div>
     </footer>
   );
 };
-

@@ -5,15 +5,13 @@ import {
   ShieldCheck,
   CheckCircle2,
   Sparkles,
-  ExternalLink,
-  Tag,
   X,
   KeyRound,
   User,
   Zap,
 } from 'lucide-react';
 import { UserSubscription } from '../types';
-import { PLAN_CREDENTIALS } from './PricingPage';
+import { PLAN_CREDENTIALS, buildDirectPayPalCheckoutUrl } from './PricingPage';
 
 interface UnlockModalProps {
   isOpen: boolean;
@@ -28,12 +26,12 @@ interface UnlockModalProps {
 }
 
 const PLAN_OPTIONS = [
-  { id: '10', shortName: 'Plan 10', name: 'Starter Pack 10', quota: 10 },
-  { id: '30', shortName: 'Plan 30', name: 'Creador Básico 30', quota: 30 },
-  { id: '50', shortName: 'Plan 50', name: 'Creador Pro 50', quota: 50 },
-  { id: '100', shortName: 'Plan 100', name: 'Business Booster 100', quota: 100 },
-  { id: '500', shortName: 'Plan 500', name: 'Agencia Master 500', quota: 500 },
-  { id: '1000', shortName: 'Plan 1000', name: 'VIP Enterprise 1000', quota: 1000 },
+  { id: '10', shortName: 'Plan 10', name: 'Starter Pack 10', quota: 10, priceUsd: 9 },
+  { id: '30', shortName: 'Plan 30', name: 'Creador Básico 30', quota: 30, priceUsd: 19 },
+  { id: '50', shortName: 'Plan 50', name: 'Creador Pro 50', quota: 50, priceUsd: 29 },
+  { id: '100', shortName: 'Plan 100', name: 'Business Booster 100', quota: 100, priceUsd: 49 },
+  { id: '500', shortName: 'Plan 500', name: 'Agencia Master 500', quota: 500, priceUsd: 149 },
+  { id: '1000', shortName: 'Plan 1000', name: 'VIP Enterprise 1000', quota: 1000, priceUsd: 249 },
 ];
 
 export const UnlockModal: React.FC<UnlockModalProps> = ({
@@ -51,6 +49,15 @@ export const UnlockModal: React.FC<UnlockModalProps> = ({
   if (!isOpen) return null;
 
   const isUnlocked = subscription.planType !== 'free';
+  const currentSelectedPlan =
+    PLAN_OPTIONS.find((p) => p.id === selectedTierId) || PLAN_OPTIONS[2];
+
+  const checkoutUrl = buildDirectPayPalCheckoutUrl({
+    tierId: currentSelectedPlan.id,
+    tierName: currentSelectedPlan.name,
+    promptsCount: currentSelectedPlan.quota,
+    priceUsd: currentSelectedPlan.priceUsd,
+  });
 
   const handleSelectPlan = (tierId: string) => {
     setSelectedTierId(tierId);
@@ -69,10 +76,12 @@ export const UnlockModal: React.FC<UnlockModalProps> = ({
       return;
     }
     onUpdateSubscription(plan.id, 'active', {
-      paymentMethod: 'whop',
+      paymentMethod: 'paypal',
       monthlyPromptQuota: plan.quota,
     });
-    setStatusMessage(`¡${plan.name} (${plan.quota} prompts/mes) activado para ${username.trim()}!`);
+    setStatusMessage(
+      `¡${plan.name} (${plan.quota} prompts/mes) activado para ${username.trim()}!`
+    );
   };
 
   const handleRelockFree = () => {
@@ -207,17 +216,28 @@ export const UnlockModal: React.FC<UnlockModalProps> = ({
               </div>
             </div>
 
-            <button
-              type="button"
-              onClick={handleActivateSelectedPlan}
-              className="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-black text-xs flex items-center justify-center gap-2 shadow-md cursor-pointer transition-all"
-            >
-              <Zap className="w-4 h-4 fill-current" />
-              <span>
-                Activar {PLAN_OPTIONS.find((p) => p.id === selectedTierId)?.name} (
-                {PLAN_OPTIONS.find((p) => p.id === selectedTierId)?.quota} Prompts/mes)
-              </span>
-            </button>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
+              <button
+                type="button"
+                onClick={handleActivateSelectedPlan}
+                className="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-black text-xs flex items-center justify-center gap-2 shadow-md cursor-pointer transition-all"
+              >
+                <Zap className="w-4 h-4 fill-current" />
+                <span>
+                  Activar {currentSelectedPlan.shortName} ({currentSelectedPlan.quota} Prompts)
+                </span>
+              </button>
+
+              <a
+                href={checkoutUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-amber-400 via-yellow-300 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-slate-950 font-black text-xs flex items-center justify-center gap-1.5 shadow-md cursor-pointer transition-all text-center"
+              >
+                <Sparkles className="w-3.5 h-3.5 fill-current shrink-0" />
+                <span>Suscribirte • ${currentSelectedPlan.priceUsd}/mes</span>
+              </a>
+            </div>
           </div>
 
           {/* Main Golden CTA Button */}
@@ -232,37 +252,6 @@ export const UnlockModal: React.FC<UnlockModalProps> = ({
               <Sparkles className="w-4 h-4 text-slate-950 fill-current" />
               <span>Ver Todos los Planes y Suscribirte</span>
             </button>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 flex flex-col justify-between space-y-2">
-              <div className="space-y-1">
-                <span className="text-xs font-extrabold text-slate-900 flex items-center space-x-1.5">
-                  <Tag className="w-4 h-4 text-amber-600" />
-                  <span>Checkout Seguro con Whop</span>
-                </span>
-                <p className="text-[11px] text-slate-600">
-                  Usa el código <strong className="font-mono">WHOP40</strong> para 40% de descuento.
-                </p>
-              </div>
-            </div>
-
-            <div className="p-3.5 rounded-2xl bg-amber-50/50 border border-amber-200 flex flex-col justify-between space-y-2">
-              <div className="space-y-1">
-                <span className="text-xs font-extrabold text-slate-900">
-                  ⚡ Whop @saulmente (-40% OFF)
-                </span>
-              </div>
-              <a
-                href="https://whop.com/@saulmente"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="w-full py-1.5 px-3 rounded-xl bg-slate-900 hover:bg-slate-800 text-amber-300 font-bold text-xs flex items-center justify-center space-x-1.5 text-center"
-              >
-                <span>Mi comunidad en Whop</span>
-                <ExternalLink className="w-3.5 h-3.5" />
-              </a>
-            </div>
           </div>
 
           {/* Quick Access Toggle */}
