@@ -38,6 +38,7 @@ import {
   INITIAL_PROMPT_ANALYTICS_HISTORY,
   INITIAL_EXECUTION_TELEMETRY,
 } from '../data/mockDatabase';
+import { useLanguage } from '../i18n/LanguageContext';
 
 export interface DailyExecutionFrequencyPoint {
   dateStr: string;
@@ -69,6 +70,7 @@ export const PromptAnalyticsDashboard: React.FC<PromptAnalyticsDashboardProps> =
   liveTelemetry = [],
   onRecordLiveBenchmark,
 }) => {
+  const { t, locale } = useLanguage();
   const [selectedPromptId, setSelectedPromptId] = useState<string>('all');
   const [chartMode, setChartMode] = useState<AnalyticsChartMode>('dual');
   const [visibleVersions, setVisibleVersions] = useState<{
@@ -130,9 +132,9 @@ export const PromptAnalyticsDashboard: React.FC<PromptAnalyticsDashboardProps> =
     for (let i = 29; i >= 0; i--) {
       const d = new Date(now.getTime() - i * 24 * 60 * 60 * 1000);
       const dayOfMonth = d.getDate();
-      const monthShort = d.toLocaleDateString('es-ES', { month: 'short' }).replace('.', '');
+      const monthShort = d.toLocaleDateString(locale, { month: 'short' }).replace('.', '');
       const dateLabel = `${dayOfMonth < 10 ? '0' : ''}${dayOfMonth} ${monthShort.charAt(0).toUpperCase() + monthShort.slice(1)}`;
-      const dayOfWeek = d.toLocaleDateString('es-ES', { weekday: 'short' });
+      const dayOfWeek = d.toLocaleDateString(locale, { weekday: 'short' });
       const isWeekend = d.getDay() === 0 || d.getDay() === 6;
 
       // Organic trend: upward trajectory across 30 days + weekly rhythm
@@ -181,7 +183,7 @@ export const PromptAnalyticsDashboard: React.FC<PromptAnalyticsDashboardProps> =
     }
 
     return points;
-  }, [prompts, selectedPromptId, liveBenchmarkRuns]);
+  }, [prompts, selectedPromptId, liveBenchmarkRuns, locale]);
 
   const thirtyDaysStats = useMemo(() => {
     const total = thirtyDaysExecutionData.reduce((acc, p) => acc + p.executions, 0);
@@ -475,253 +477,242 @@ export const PromptAnalyticsDashboard: React.FC<PromptAnalyticsDashboardProps> =
   };
 
   return (
-    <div className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 space-y-6 shadow-sm">
+    <div className="bg-white border border-slate-200 rounded-2xl p-6 sm:p-8 space-y-6">
       {/* Top Header & Action Controls */}
       <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 border-b border-slate-100 pb-5">
-        <div className="space-y-1.5">
-          <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 text-xs font-extrabold uppercase tracking-wider">
-            <Activity className="w-3.5 h-3.5 text-emerald-600" />
-            <span>Prompt Analytics • Telemetría Recharts por Versión</span>
-          </div>
-          <h2 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
-            Tasa de Éxito (%) y Latencia de Respuesta (ms) en el Tiempo
+        <div className="space-y-1">
+          <p className="text-xs font-semibold text-indigo-600">{t.analytics.eyebrow}</p>
+          <h2 className="font-display text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
+            {t.analytics.title}
           </h2>
           <p className="text-xs sm:text-sm text-slate-500 max-w-2xl">
-            Analiza cómo evoluciona la efectividad y velocidad de respuesta entre las diferentes iteraciones de tus prompts (<strong className="text-slate-700">v1.0 Base</strong>, <strong className="text-indigo-700">v2.0 Few-Shot</strong> y <strong className="text-emerald-700">v3.0 Optimizada Flash</strong>).
+            {t.analytics.subtitle}
           </p>
         </div>
 
-        {/* Action Buttons: Simulate Benchmark & Reset */}
+        {/* Action Buttons */}
         <div className="flex flex-wrap items-center gap-2 shrink-0">
           <button
+            type="button"
             onClick={handleRunLiveBenchmark}
-            className="inline-flex items-center space-x-2 px-4 py-2.5 rounded-2xl bg-gradient-to-r from-amber-400 via-yellow-300 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-slate-950 font-black text-xs shadow-md shadow-amber-400/20 border border-amber-400 transition-all cursor-pointer"
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-semibold text-xs transition-colors whitespace-nowrap shrink-0 cursor-pointer"
           >
-            <Play className="w-3.5 h-3.5 text-slate-950 fill-current" />
-            <span>Simular Benchmark en Vivo (+1)</span>
+            <Play className="w-3.5 h-3.5 fill-current" />
+            <span>{t.analytics.simulateBtn}</span>
           </button>
 
           <button
+            type="button"
             onClick={handleResetAnalytics}
-            className="inline-flex items-center space-x-1.5 px-3 py-2.5 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition-all border border-slate-200 cursor-pointer"
-            title="Restaurar serie histórica base"
+            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white hover:bg-slate-50 text-slate-700 font-medium text-xs transition-colors border border-slate-200 whitespace-nowrap shrink-0 cursor-pointer"
           >
             <RotateCcw className="w-3.5 h-3.5 text-slate-500" />
-            <span>Restaurar</span>
+            <span>{t.analytics.resetBtn}</span>
           </button>
         </div>
       </div>
 
-      {/* Filter Bar: Prompt Selector + Version Toggles + Chart Mode */}
-      <div className="flex flex-col xl:flex-row items-stretch xl:items-center justify-between gap-4 bg-slate-50 p-4 rounded-2xl border border-slate-200">
+      {/* Filter Bar */}
+      <div className="flex flex-col xl:flex-row items-stretch xl:items-center justify-between gap-4 bg-slate-50 p-4 rounded-xl border border-slate-200">
         {/* Prompt Filter */}
         <div className="flex flex-col sm:flex-row sm:items-center gap-2 flex-1">
-          <label className="text-xs font-extrabold text-slate-700 flex items-center space-x-1.5 shrink-0">
-            <Filter className="w-3.5 h-3.5 text-indigo-600" />
-            <span>Prompt Analizado:</span>
+          <label className="text-xs font-semibold text-slate-700 flex items-center gap-1.5 shrink-0">
+            <Filter className="w-3.5 h-3.5 text-slate-500" />
+            <span>{t.analytics.promptAnalyzed}</span>
           </label>
           <select
             value={selectedPromptId}
             onChange={(e) => setSelectedPromptId(e.target.value)}
-            className="w-full sm:max-w-md px-3.5 py-2 rounded-xl bg-white border border-slate-300 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            className="w-full sm:max-w-md px-3 py-2 rounded-lg bg-white border border-slate-200 text-xs font-medium text-slate-800 focus:outline-none focus:border-indigo-500"
           >
-            <option value="all">🌐 Todos los Prompts (Promedio Global de Versiones)</option>
+            <option value="all">{t.analytics.allPromptsOption}</option>
             {prompts.map((p) => (
               <option key={p.id} value={p.id}>
-                📌 {p.title} ({(p.versions || []).length} {(p.versions || []).length === 1 ? 'versión' : 'versiones'})
+                {p.title}
               </option>
             ))}
           </select>
         </div>
 
         {/* Version Line Toggles */}
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-[11px] font-bold text-slate-500 mr-1">Series:</span>
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="text-xs text-slate-500 mr-1">{t.analytics.series}</span>
           <button
+            type="button"
             onClick={() => toggleVersionVisibility('v1')}
-            className={`px-3 py-1.5 rounded-xl text-xs font-extrabold flex items-center space-x-1.5 border transition-all cursor-pointer ${
+            className={`px-2.5 py-1 rounded-lg text-xs font-medium border transition-colors cursor-pointer ${
               visibleVersions.v1
-                ? 'bg-slate-800 text-white border-slate-900 shadow-xs'
-                : 'bg-white text-slate-400 border-slate-200'
+                ? 'bg-slate-900 text-white border-slate-900'
+                : 'bg-white text-slate-500 border-slate-200'
             }`}
           >
-            <span className="w-2 h-2 rounded-full bg-slate-400" />
-            <span>v1.0 Base</span>
+            v1.0
           </button>
 
           <button
+            type="button"
             onClick={() => toggleVersionVisibility('v2')}
-            className={`px-3 py-1.5 rounded-xl text-xs font-extrabold flex items-center space-x-1.5 border transition-all cursor-pointer ${
+            className={`px-2.5 py-1 rounded-lg text-xs font-medium border transition-colors cursor-pointer ${
               visibleVersions.v2
-                ? 'bg-indigo-600 text-white border-indigo-700 shadow-xs'
-                : 'bg-white text-slate-400 border-slate-200'
+                ? 'bg-indigo-600 text-white border-indigo-600'
+                : 'bg-white text-slate-500 border-slate-200'
             }`}
           >
-            <span className="w-2 h-2 rounded-full bg-indigo-300" />
-            <span>v2.0 Few-Shot</span>
+            v2.0
           </button>
 
           <button
+            type="button"
             onClick={() => toggleVersionVisibility('v3')}
-            className={`px-3 py-1.5 rounded-xl text-xs font-extrabold flex items-center space-x-1.5 border transition-all cursor-pointer ${
+            className={`px-2.5 py-1 rounded-lg text-xs font-medium border transition-colors cursor-pointer ${
               visibleVersions.v3
-                ? 'bg-emerald-600 text-white border-emerald-700 shadow-xs'
-                : 'bg-white text-slate-400 border-slate-200'
+                ? 'bg-emerald-600 text-white border-emerald-600'
+                : 'bg-white text-slate-500 border-slate-200'
             }`}
           >
-            <span className="w-2 h-2 rounded-full bg-emerald-300" />
-            <span>v3.0 Flash</span>
+            v3.0
           </button>
         </div>
 
         {/* Chart Metric Mode Selector */}
-        <div className="bg-slate-200/80 p-1 rounded-xl flex items-center space-x-1 text-xs font-bold self-start xl:self-auto">
+        <div className="bg-slate-200/70 p-0.5 rounded-lg inline-flex items-center text-xs font-medium self-start xl:self-auto">
           <button
+            type="button"
             onClick={() => setChartMode('dual')}
-            className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
+            className={`px-3 py-1.5 rounded-md transition-colors cursor-pointer ${
               chartMode === 'dual'
-                ? 'bg-white text-indigo-700 shadow-xs font-extrabold'
+                ? 'bg-white text-slate-900 shadow-2xs font-semibold'
                 : 'text-slate-600 hover:text-slate-900'
             }`}
           >
-            Éxito + Latencia
+            {t.analytics.modeDual}
           </button>
           <button
+            type="button"
             onClick={() => setChartMode('success')}
-            className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
+            className={`px-3 py-1.5 rounded-md transition-colors cursor-pointer ${
               chartMode === 'success'
-                ? 'bg-white text-emerald-700 shadow-xs font-extrabold'
+                ? 'bg-white text-slate-900 shadow-2xs font-semibold'
                 : 'text-slate-600 hover:text-slate-900'
             }`}
           >
-            Tasa de Éxito (%)
+            {t.analytics.modeSuccess}
           </button>
           <button
+            type="button"
             onClick={() => setChartMode('latency')}
-            className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
+            className={`px-3 py-1.5 rounded-md transition-colors cursor-pointer ${
               chartMode === 'latency'
-                ? 'bg-white text-amber-700 shadow-xs font-extrabold'
+                ? 'bg-white text-slate-900 shadow-2xs font-semibold'
                 : 'text-slate-600 hover:text-slate-900'
             }`}
           >
-            Latencia (ms)
+            {t.analytics.modeLatency}
           </button>
         </div>
       </div>
 
-      {/* 30-Day Prompt Execution Frequency Line Chart Card */}
-      <div className="bg-slate-50/80 border border-slate-200 rounded-2xl p-5 sm:p-6 space-y-5 shadow-xs">
-        {/* Top Header of the 30-Day Frequency Section */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-slate-200/80 pb-4">
-          <div className="space-y-1">
-            <div className="flex items-center space-x-2">
-              <span className="p-1.5 rounded-lg bg-indigo-100 text-indigo-700">
-                <BarChart3 className="w-4 h-4" />
-              </span>
-              <h3 className="text-base sm:text-lg font-black text-slate-900 tracking-tight">
-                Frecuencia de Ejecución de Prompts (Últimos 30 Días)
+      {/* 30-Day Prompt Execution Frequency Line Chart */}
+      <div className="border border-slate-200 rounded-2xl overflow-hidden bg-white">
+        <div className="px-5 py-4 flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-slate-200">
+          <div className="space-y-0.5">
+            <div className="flex flex-wrap items-center gap-2">
+              <h3 className="font-display text-base font-bold text-slate-900">
+                {t.analytics.freqTitle}
               </h3>
-              <span className="px-2.5 py-0.5 rounded-full text-[11px] font-extrabold bg-indigo-50 text-indigo-700 border border-indigo-200">
-                {thirtyDaysStats.dateRangeLabel}
+              <span className="text-xs font-mono text-slate-500 tabular-nums">
+                · {thirtyDaysStats.dateRangeLabel}
               </span>
             </div>
             <p className="text-xs text-slate-500">
               {selectedPrompt
-                ? `Frecuencia y volumen diario de ejecuciones registrado para "${selectedPrompt.title}"`
-                : 'Frecuencia consolidada de ejecuciones diarias de todos los prompts de la plataforma'}
+                ? `${t.analytics.freqSubtitleSingle} (${selectedPrompt.title})`
+                : t.analytics.freqSubtitleAll}
             </p>
           </div>
 
-          {/* Metric View Selector */}
-          <div className="bg-slate-200/80 p-1 rounded-xl flex items-center space-x-1 text-xs font-bold self-start md:self-auto shrink-0">
+          <div className="bg-slate-100 p-0.5 rounded-lg inline-flex items-center text-xs font-medium self-start md:self-auto shrink-0 border border-slate-200">
             <button
+              type="button"
               onClick={() => setFrequencyViewMode('total')}
-              className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
+              className={`px-3 py-1.5 rounded-md transition-colors cursor-pointer ${
                 frequencyViewMode === 'total'
-                  ? 'bg-white text-indigo-700 shadow-xs font-extrabold'
+                  ? 'bg-white text-slate-900 shadow-2xs font-semibold'
                   : 'text-slate-600 hover:text-slate-900'
               }`}
             >
-              Frecuencia Diaria
+              {t.analytics.freqDaily}
             </button>
             <button
+              type="button"
               onClick={() => setFrequencyViewMode('split')}
-              className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
+              className={`px-3 py-1.5 rounded-md transition-colors cursor-pointer ${
                 frequencyViewMode === 'split'
-                  ? 'bg-white text-emerald-700 shadow-xs font-extrabold'
+                  ? 'bg-white text-slate-900 shadow-2xs font-semibold'
                   : 'text-slate-600 hover:text-slate-900'
               }`}
             >
-              Exitosas vs Reintentos
+              {t.analytics.freqSplit}
             </button>
             <button
+              type="button"
               onClick={() => setFrequencyViewMode('cumulative')}
-              className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
+              className={`px-3 py-1.5 rounded-md transition-colors cursor-pointer ${
                 frequencyViewMode === 'cumulative'
-                  ? 'bg-white text-purple-700 shadow-xs font-extrabold'
+                  ? 'bg-white text-slate-900 shadow-2xs font-semibold'
                   : 'text-slate-600 hover:text-slate-900'
               }`}
             >
-              Volumen Acumulado
+              {t.analytics.freqCumulative}
             </button>
           </div>
         </div>
 
-        {/* 4 Quick Stat Badges for 30-Day Window */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-          <div className="p-3.5 rounded-xl bg-white border border-slate-200 space-y-1">
-            <div className="flex items-center justify-between text-[11px] font-bold text-slate-500">
-              <span>Total 30 Días</span>
-              <Activity className="w-3.5 h-3.5 text-indigo-500" />
+        {/* 4 Flat Stat Columns */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 divide-y lg:divide-y-0 divide-x divide-slate-200 border-b border-slate-200 bg-slate-50/50 tabular-nums">
+          <div className="px-5 py-3.5">
+            <div className="text-xs text-slate-500">{t.analytics.total30d}</div>
+            <div className="font-display text-2xl font-bold text-slate-900 mt-0.5">
+              {thirtyDaysStats.total.toLocaleString(locale)}
             </div>
-            <div className="text-xl sm:text-2xl font-black text-slate-900">
-              {thirtyDaysStats.total.toLocaleString('es-ES')}
+            <div className="text-[11px] text-emerald-700 font-medium mt-0.5">
+              +{thirtyDaysStats.growthPct}% {t.analytics.vsPrevFortnight}
             </div>
-            <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded">
-              +{thirtyDaysStats.growthPct}% vs quincena anterior
-            </span>
           </div>
 
-          <div className="p-3.5 rounded-xl bg-white border border-slate-200 space-y-1">
-            <div className="flex items-center justify-between text-[11px] font-bold text-slate-500">
-              <span>Promedio Diario</span>
-              <Clock className="w-3.5 h-3.5 text-amber-500" />
-            </div>
-            <div className="text-xl sm:text-2xl font-black text-slate-900">
+          <div className="px-5 py-3.5">
+            <div className="text-xs text-slate-500">{t.analytics.avgDaily}</div>
+            <div className="font-display text-2xl font-bold text-slate-900 mt-0.5">
               {thirtyDaysStats.avgDaily}
             </div>
-            <span className="text-[10px] text-slate-500">ejecuciones por día</span>
+            <div className="text-[11px] text-slate-500 mt-0.5">
+              {t.analytics.executionsPerDay}
+            </div>
           </div>
 
-          <div className="p-3.5 rounded-xl bg-white border border-slate-200 space-y-1">
-            <div className="flex items-center justify-between text-[11px] font-bold text-slate-500">
-              <span>Día Pico Máximo</span>
-              <Flame className="w-3.5 h-3.5 text-amber-500" />
-            </div>
-            <div className="text-xl sm:text-2xl font-black text-slate-900">
+          <div className="px-5 py-3.5">
+            <div className="text-xs text-slate-500">{t.analytics.peakDay}</div>
+            <div className="font-display text-2xl font-bold text-slate-900 mt-0.5">
               {thirtyDaysStats.peakPoint.executions}
             </div>
-            <span className="text-[10px] font-bold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded">
+            <div className="text-[11px] text-slate-600 font-medium mt-0.5">
               {thirtyDaysStats.peakPoint.dateLabel} ({thirtyDaysStats.peakPoint.dayOfWeek})
-            </span>
+            </div>
           </div>
 
-          <div className="p-3.5 rounded-xl bg-white border border-slate-200 space-y-1">
-            <div className="flex items-center justify-between text-[11px] font-bold text-slate-500">
-              <span>Fiabilidad Global</span>
-              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
-            </div>
-            <div className="text-xl sm:text-2xl font-black text-emerald-700">
+          <div className="px-5 py-3.5">
+            <div className="text-xs text-slate-500">{t.analytics.globalReliability}</div>
+            <div className="font-display text-2xl font-bold text-emerald-700 mt-0.5">
               {thirtyDaysStats.reliabilityPct}%
             </div>
-            <span className="text-[10px] text-slate-500">
-              {thirtyDaysStats.totalSuccessful} exitosas
-            </span>
+            <div className="text-[11px] text-slate-500 mt-0.5">
+              {thirtyDaysStats.totalSuccessful.toLocaleString(locale)} {t.analytics.successful}
+            </div>
           </div>
         </div>
 
         {/* Recharts LineChart for 30-Day Execution Frequency */}
-        <div className="w-full bg-white p-4 rounded-xl border border-slate-200">
+        <div className="w-full bg-white p-5">
           <div className="h-72 sm:h-80 w-full">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart
@@ -747,7 +738,7 @@ export const PromptAnalyticsDashboard: React.FC<PromptAnalyticsDashboardProps> =
                 />
                 <Tooltip content={<CustomFrequencyTooltip />} />
                 <Legend
-                  wrapperStyle={{ paddingTop: '12px', fontSize: '12px', fontWeight: 700 }}
+                  wrapperStyle={{ paddingTop: '12px', fontSize: '12px', fontWeight: 600 }}
                 />
                 {frequencyViewMode !== 'cumulative' && (
                   <ReferenceLine
@@ -755,11 +746,11 @@ export const PromptAnalyticsDashboard: React.FC<PromptAnalyticsDashboardProps> =
                     stroke="#818cf8"
                     strokeDasharray="4 4"
                     label={{
-                      value: `Promedio: ${thirtyDaysStats.avgDaily}/d`,
+                      value: `${thirtyDaysStats.avgDaily}/d`,
                       position: 'insideTopRight',
                       fill: '#4f46e5',
                       fontSize: 11,
-                      fontWeight: 700,
+                      fontWeight: 600,
                     }}
                   />
                 )}
@@ -768,11 +759,11 @@ export const PromptAnalyticsDashboard: React.FC<PromptAnalyticsDashboardProps> =
                   <Line
                     type="monotone"
                     dataKey="executions"
-                    name="Frecuencia Diaria de Ejecuciones"
-                    stroke="#6366f1"
-                    strokeWidth={3}
-                    dot={{ r: 3, fill: '#6366f1' }}
-                    activeDot={{ r: 6, fill: '#4338ca', stroke: '#c7d2fe', strokeWidth: 2 }}
+                    name={t.analytics.freqDaily}
+                    stroke="#4f46e5"
+                    strokeWidth={2.5}
+                    dot={{ r: 2.5, fill: '#4f46e5' }}
+                    activeDot={{ r: 5, fill: '#4338ca', stroke: '#c7d2fe', strokeWidth: 2 }}
                   />
                 )}
 
@@ -781,20 +772,20 @@ export const PromptAnalyticsDashboard: React.FC<PromptAnalyticsDashboardProps> =
                     <Line
                       type="monotone"
                       dataKey="successful"
-                      name="Ejecuciones Exitosas"
+                      name={t.analytics.successful}
                       stroke="#10b981"
-                      strokeWidth={3}
-                      dot={{ r: 3, fill: '#10b981' }}
-                      activeDot={{ r: 6, fill: '#059669', stroke: '#a7f3d0', strokeWidth: 2 }}
+                      strokeWidth={2.5}
+                      dot={{ r: 2.5, fill: '#10b981' }}
+                      activeDot={{ r: 5, fill: '#059669', stroke: '#a7f3d0', strokeWidth: 2 }}
                     />
                     <Line
                       type="monotone"
                       dataKey="failed"
-                      name="Reintentos / Observaciones"
+                      name="Retries"
                       stroke="#f43f5e"
                       strokeWidth={2}
                       strokeDasharray="4 4"
-                      dot={{ r: 2.5, fill: '#f43f5e' }}
+                      dot={{ r: 2, fill: '#f43f5e' }}
                       activeDot={{ r: 5 }}
                     />
                   </>
@@ -804,11 +795,11 @@ export const PromptAnalyticsDashboard: React.FC<PromptAnalyticsDashboardProps> =
                   <Line
                     type="monotone"
                     dataKey="cumulative"
-                    name="Ejecuciones Acumuladas (30 Días)"
-                    stroke="#8b5cf6"
-                    strokeWidth={3.5}
-                    dot={{ r: 3, fill: '#8b5cf6' }}
-                    activeDot={{ r: 6, fill: '#6d28d9', stroke: '#ddd6fe', strokeWidth: 2 }}
+                    name={t.analytics.freqCumulative}
+                    stroke="#6366f1"
+                    strokeWidth={2.5}
+                    dot={{ r: 2.5, fill: '#6366f1' }}
+                    activeDot={{ r: 5, fill: '#4338ca', stroke: '#c7d2fe', strokeWidth: 2 }}
                   />
                 )}
               </LineChart>
@@ -819,12 +810,12 @@ export const PromptAnalyticsDashboard: React.FC<PromptAnalyticsDashboardProps> =
 
       {/* Subheader for Multi-Version Performance Curves */}
       <div className="pt-2 border-t border-slate-200">
-        <h3 className="text-base font-extrabold text-slate-900 tracking-tight flex items-center space-x-2">
+        <h3 className="font-display text-base font-bold text-slate-900 tracking-tight flex items-center gap-2">
           <GitBranch className="w-4 h-4 text-indigo-600" />
-          <span>Curvas de Rendimiento Multi-Versión (v1.0 vs v2.0 vs v3.0)</span>
+          <span>{t.analytics.versionCurvesTitle}</span>
         </h3>
         <p className="text-xs text-slate-500 mt-0.5">
-          Métricas históricas de efectividad y latencia entre diferentes configuraciones del prompt.
+          {t.analytics.versionCurvesSubtitle}
         </p>
       </div>
 

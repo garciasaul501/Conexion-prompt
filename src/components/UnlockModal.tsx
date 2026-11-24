@@ -2,20 +2,17 @@ import React, { useState } from 'react';
 import {
   Lock,
   Unlock,
-  ShieldCheck,
   CheckCircle2,
   AlertCircle,
-  Sparkles,
   X,
-  KeyRound,
   User,
-  Zap,
   Eye,
   EyeOff,
 } from 'lucide-react';
 import { UserSubscription } from '../types';
 import { buildDirectPayPalCheckoutUrl } from './PricingPage';
 import { validateAdminCredentials } from '../utils/adminAuth';
+import { useLanguage } from '../i18n/LanguageContext';
 
 interface UnlockModalProps {
   isOpen: boolean;
@@ -30,12 +27,12 @@ interface UnlockModalProps {
 }
 
 const PLAN_OPTIONS = [
-  { id: '10', shortName: 'Plan 10', name: 'Starter Pack 10', quota: 10, priceUsd: 9 },
-  { id: '30', shortName: 'Plan 30', name: 'Creador Básico 30', quota: 30, priceUsd: 19 },
-  { id: '50', shortName: 'Plan 50', name: 'Creador Pro 50', quota: 50, priceUsd: 29 },
-  { id: '100', shortName: 'Plan 100', name: 'Business Booster 100', quota: 100, priceUsd: 49 },
-  { id: '500', shortName: 'Plan 500', name: 'Agencia Master 500', quota: 500, priceUsd: 149 },
-  { id: '1000', shortName: 'Plan 1000', name: 'VIP Enterprise 1000', quota: 1000, priceUsd: 249 },
+  { id: '10', shortName: '10', name: 'Starter Pack 10', quota: 10, priceUsd: 9 },
+  { id: '30', shortName: '30', name: 'Creador Básico 30', quota: 30, priceUsd: 19 },
+  { id: '50', shortName: '50', name: 'Creador Pro 50', quota: 50, priceUsd: 29 },
+  { id: '100', shortName: '100', name: 'Business Booster 100', quota: 100, priceUsd: 49 },
+  { id: '500', shortName: '500', name: 'Agencia Master 500', quota: 500, priceUsd: 149 },
+  { id: '1000', shortName: '1000', name: 'VIP Enterprise 1000', quota: 1000, priceUsd: 249 },
 ];
 
 export const UnlockModal: React.FC<UnlockModalProps> = ({
@@ -45,6 +42,7 @@ export const UnlockModal: React.FC<UnlockModalProps> = ({
   onUpdateSubscription,
   onNavigateToPricing,
 }) => {
+  const { t } = useLanguage();
   const [selectedTierId, setSelectedTierId] = useState<string>('50');
   const [username, setUsername] = useState<string>('');
   const [password, setPassword] = useState<string>('');
@@ -95,122 +93,114 @@ export const UnlockModal: React.FC<UnlockModalProps> = ({
     });
     setStatusMessage({
       ok: true,
-      text: 'Herramienta regresada a Modo Gratuito (5 prompts).',
+      text: t.unlockModal.relockedMsg,
     });
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fade-in overflow-y-auto">
-      <div className="relative w-full max-w-xl bg-white rounded-3xl border border-slate-200 shadow-2xl overflow-hidden my-8">
-        {/* Top Header Banner */}
-        <div
-          className={`p-6 sm:p-8 text-white relative overflow-hidden ${
-            isUnlocked
-              ? 'bg-gradient-to-r from-emerald-900 via-teal-900 to-slate-900'
-              : 'bg-gradient-to-r from-amber-700 via-indigo-950 to-slate-900'
-          }`}
-        >
-          <div className="absolute top-0 right-0 -mt-8 -mr-8 w-60 h-60 bg-white/10 rounded-full blur-2xl pointer-events-none" />
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs overflow-y-auto">
+      <div className="relative w-full max-w-lg bg-white rounded-2xl border border-slate-200 shadow-2xl overflow-hidden my-8">
+        {/* Clean Header */}
+        <div className="p-6 border-b border-slate-200 flex items-start justify-between gap-4">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2 text-xs font-semibold">
+              {isUnlocked ? (
+                <span className="inline-flex items-center gap-1.5 text-emerald-700">
+                  <Unlock className="w-3.5 h-3.5" />
+                  <span>
+                    {t.unlockModal.statusActive} · {String(subscription.planType).toUpperCase()}
+                  </span>
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1.5 text-slate-600">
+                  <Lock className="w-3.5 h-3.5" />
+                  <span>{t.unlockModal.statusFree}</span>
+                </span>
+              )}
+            </div>
+            <h2 className="font-display text-xl font-bold text-slate-900">
+              {isUnlocked ? t.unlockModal.titleActive : t.unlockModal.titleFree}
+            </h2>
+            <p className="text-xs text-slate-600 leading-relaxed">{t.unlockModal.subtitle}</p>
+          </div>
 
           <button
+            type="button"
             onClick={onClose}
-            className="absolute top-4 right-4 p-2 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors cursor-pointer"
+            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
+            aria-label={t.unlockModal.close}
           >
             <X className="w-5 h-5" />
           </button>
-
-          <div className="flex items-center space-x-3 mb-2">
-            <div
-              className={`p-2.5 rounded-2xl ${
-                isUnlocked
-                  ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-400/30'
-                  : 'bg-amber-500/20 text-amber-300 border border-amber-400/30'
-              }`}
-            >
-              {isUnlocked ? <Unlock className="w-6 h-6" /> : <Lock className="w-6 h-6" />}
-            </div>
-            <div>
-              <span
-                className={`text-[11px] font-extrabold uppercase tracking-wider px-2.5 py-0.5 rounded-full inline-block ${
-                  isUnlocked
-                    ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
-                    : 'bg-amber-400/20 text-amber-300 border border-amber-400/30'
-                }`}
-              >
-                {isUnlocked
-                  ? `⚡ Estado: PLAN ${String(subscription.planType).toUpperCase()} ACTIVO`
-                  : '🔒 Estado: PLAN GRATUITO'}
-              </span>
-              <h2 className="text-xl sm:text-2xl font-black text-white mt-1">
-                {isUnlocked ? '¡Acceso Total Activo!' : 'Acceso a Planes y Suscribirte'}
-              </h2>
-            </div>
-          </div>
-
-          <p className="text-xs sm:text-sm text-slate-200 mt-2 leading-relaxed">
-            Suscríbete con PayPal para acceso automático o desbloquea cualquier plan con tus credenciales seguras de administrador.
-          </p>
         </div>
 
-        {/* Modal Body */}
-        <div className="p-6 sm:p-8 space-y-5">
+        {/* Body */}
+        <div className="p-6 space-y-5">
           {statusMessage && (
             <div
-              className={`p-4 rounded-2xl border text-xs sm:text-sm flex items-center space-x-3 ${
+              className={`p-3.5 rounded-xl border text-xs font-medium flex items-center gap-2.5 ${
                 statusMessage.ok
-                  ? 'bg-emerald-50 border-emerald-300 text-emerald-900'
-                  : 'bg-rose-50 border-rose-300 text-rose-900'
+                  ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+                  : 'bg-rose-50 border-rose-200 text-rose-800'
               }`}
             >
               {statusMessage.ok ? (
-                <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
               ) : (
-                <AlertCircle className="w-5 h-5 text-rose-600 shrink-0" />
+                <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
               )}
-              <div className="flex-1 font-bold">{statusMessage.text}</div>
+              <span>{statusMessage.text}</span>
             </div>
           )}
 
-          {/* Secure Admin Unlock Box (Credentials masked, not displayed openly) */}
-          <div className="p-5 rounded-2xl bg-slate-900 text-white border border-slate-800 space-y-4">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-extrabold text-amber-400 flex items-center gap-1.5">
-                <KeyRound className="w-4 h-4" />
-                <span>Desbloqueo de Administrador (Acceso Seguro)</span>
-              </span>
-              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                Privado y Encriptado
-              </span>
+          {/* Plan Selector */}
+          <div className="space-y-2">
+            <label className="block text-xs font-medium text-slate-700">
+              {t.unlockModal.selectPlanLabel}
+            </label>
+            <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5">
+              {PLAN_OPTIONS.map((p) => (
+                <button
+                  key={p.id}
+                  type="button"
+                  onClick={() => handleSelectPlan(p.id)}
+                  className={`py-2 px-2 rounded-lg text-xs font-mono font-semibold transition-colors cursor-pointer border tabular-nums ${
+                    selectedTierId === p.id
+                      ? 'bg-slate-900 text-white border-slate-900'
+                      : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                  }`}
+                >
+                  {p.shortName}
+                </button>
+              ))}
+            </div>
+            <p className="text-xs text-slate-500 tabular-nums">
+              {currentSelectedPlan.name} · {currentSelectedPlan.quota} prompts · $
+              {currentSelectedPlan.priceUsd} USD
+            </p>
+          </div>
+
+          {/* PayPal Direct Payment Primary Button */}
+          <a
+            href={checkoutUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="w-full py-3 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-sm flex items-center justify-center transition-colors text-center"
+          >
+            {t.unlockModal.payPaypalBtn} · ${currentSelectedPlan.priceUsd} USD
+          </a>
+
+          {/* Credentials Access Section */}
+          <div className="pt-4 border-t border-slate-200 space-y-3">
+            <div className="flex items-center justify-between text-xs">
+              <span className="font-semibold text-slate-800">{t.unlockModal.adminHeader}</span>
+              <span className="text-slate-400">{t.unlockModal.privateEncrypted}</span>
             </div>
 
-            {/* Plan Selector Pills */}
-            <div className="space-y-1">
-              <label className="block text-[10px] font-bold text-slate-400">
-                Selecciona el plan a desbloquear:
-              </label>
-              <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5">
-                {PLAN_OPTIONS.map((p) => (
-                  <button
-                    key={p.id}
-                    type="button"
-                    onClick={() => handleSelectPlan(p.id)}
-                    className={`py-1.5 px-2 rounded-xl text-[11px] font-extrabold transition-all cursor-pointer border ${
-                      selectedTierId === p.id
-                        ? 'bg-amber-400 text-slate-950 border-amber-300 shadow-sm'
-                        : 'bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700'
-                    }`}
-                  >
-                    {p.shortName}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Masked credentials inputs */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <label className="block text-[10px] font-bold text-slate-300 mb-1">
-                  Usuario o Correo:
+                <label className="block text-xs text-slate-600 mb-1">
+                  {t.unlockModal.userLabel}
                 </label>
                 <div className="relative flex items-center">
                   <User className="w-3.5 h-3.5 text-slate-400 absolute left-3 pointer-events-none" />
@@ -218,14 +208,15 @@ export const UnlockModal: React.FC<UnlockModalProps> = ({
                     type="text"
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
-                    placeholder="usuario@dominio.com"
-                    className="w-full pl-8 pr-3 py-2 rounded-xl bg-slate-800 border border-slate-700 text-xs font-mono text-white placeholder-slate-500 focus:outline-none focus:border-amber-400"
+                    placeholder="user@domain.com"
+                    className="w-full pl-8 pr-3 py-2 rounded-lg bg-slate-50 border border-slate-200 text-xs font-mono text-slate-900 focus:outline-none focus:border-indigo-500 focus:bg-white"
                   />
                 </div>
               </div>
+
               <div>
-                <label className="block text-[10px] font-bold text-slate-300 mb-1">
-                  Password de Activación:
+                <label className="block text-xs text-slate-600 mb-1">
+                  {t.unlockModal.passLabel}
                 </label>
                 <div className="relative flex items-center">
                   <Lock className="w-3.5 h-3.5 text-slate-400 absolute left-3 pointer-events-none" />
@@ -233,14 +224,13 @@ export const UnlockModal: React.FC<UnlockModalProps> = ({
                     type={showPassword ? 'text' : 'password'}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    placeholder="••••••••••••••"
-                    className="w-full pl-8 pr-9 py-2 rounded-xl bg-slate-800 border border-slate-700 text-xs font-mono text-amber-300 font-bold placeholder-slate-500 focus:outline-none focus:border-amber-400"
+                    placeholder="••••••••••••"
+                    className="w-full pl-8 pr-9 py-2 rounded-lg bg-slate-50 border border-slate-200 text-xs font-mono text-slate-900 focus:outline-none focus:border-indigo-500 focus:bg-white"
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-2.5 text-slate-400 hover:text-white cursor-pointer"
-                    title={showPassword ? 'Ocultar password' : 'Ver password'}
+                    className="absolute right-2.5 text-slate-400 hover:text-slate-700 cursor-pointer"
                   >
                     {showPassword ? (
                       <EyeOff className="w-3.5 h-3.5" />
@@ -252,67 +242,44 @@ export const UnlockModal: React.FC<UnlockModalProps> = ({
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
-              <button
-                type="button"
-                onClick={handleActivateSelectedPlan}
-                className="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-black text-xs flex items-center justify-center gap-2 shadow-md cursor-pointer transition-all"
-              >
-                <Zap className="w-4 h-4 fill-current" />
-                <span>
-                  Desbloquear {currentSelectedPlan.shortName} ({currentSelectedPlan.quota} Prompts)
-                </span>
-              </button>
-
-              <a
-                href={checkoutUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-amber-400 via-yellow-300 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-slate-950 font-black text-xs flex items-center justify-center gap-1.5 shadow-md cursor-pointer transition-all text-center"
-              >
-                <Sparkles className="w-3.5 h-3.5 fill-current shrink-0" />
-                <span>Pagar con PayPal • ${currentSelectedPlan.priceUsd}/mes</span>
-              </a>
-            </div>
+            <button
+              type="button"
+              onClick={handleActivateSelectedPlan}
+              className="w-full py-2.5 px-4 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-semibold text-xs transition-colors cursor-pointer"
+            >
+              {t.unlockModal.unlockPlanBtn} {currentSelectedPlan.name}
+            </button>
           </div>
 
-          {/* Golden CTA Button */}
-          <div className="text-center">
+          {/* Footer Links */}
+          <div className="pt-4 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2 text-xs">
             <button
+              type="button"
               onClick={() => {
                 onClose();
                 onNavigateToPricing();
               }}
-              className="w-full py-3.5 px-6 rounded-2xl bg-gradient-to-r from-amber-400 via-yellow-300 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-slate-950 font-black text-sm shadow-xl shadow-amber-400/30 border-2 border-amber-300 flex items-center justify-center space-x-2.5 transition-all cursor-pointer"
+              className="font-medium text-indigo-600 hover:text-indigo-800 cursor-pointer"
             >
-              <Sparkles className="w-4 h-4 text-slate-950 fill-current" />
-              <span>Ver Todos los Planes y Suscribirte</span>
+              {t.unlockModal.viewAllPlansBtn}
             </button>
-          </div>
 
-          {/* Quick Access Toggle */}
-          <div className="pt-3 border-t border-slate-200 flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center space-x-2 text-xs text-slate-500">
-              <ShieldCheck className="w-4 h-4 text-emerald-600" />
-              <span>Control Rápido:</span>
-            </div>
-
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-3">
               {isUnlocked && (
                 <button
+                  type="button"
                   onClick={handleRelockFree}
-                  className="px-3.5 py-1.5 rounded-xl bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold text-xs flex items-center space-x-1.5 transition-all cursor-pointer"
+                  className="text-slate-500 hover:text-slate-800 font-medium cursor-pointer"
                 >
-                  <Lock className="w-3.5 h-3.5 text-slate-600" />
-                  <span>Cambiar a Modo Free</span>
+                  {t.unlockModal.switchFreeBtn}
                 </button>
               )}
-
               <button
+                type="button"
                 onClick={onClose}
-                className="px-3.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs transition-all cursor-pointer"
+                className="px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium cursor-pointer"
               >
-                Cerrar
+                {t.unlockModal.close}
               </button>
             </div>
           </div>

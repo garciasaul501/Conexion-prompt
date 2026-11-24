@@ -16,6 +16,7 @@ import {
   CheckCircle2,
 } from 'lucide-react';
 import { UserIntegration } from '../types';
+import { useLanguage } from '../i18n/LanguageContext';
 
 interface IntegrationsTabProps {
   integrations: UserIntegration[];
@@ -27,6 +28,7 @@ export const IntegrationsTab: React.FC<IntegrationsTabProps> = ({
   integrations,
   onSaveApiKey,
 }) => {
+  const { t } = useLanguage();
   const [editingProvider, setEditingProvider] = useState<
     'openai' | 'anthropic' | 'google_gemini' | 'tiktok' | null
   >(null);
@@ -109,51 +111,50 @@ export const IntegrationsTab: React.FC<IntegrationsTabProps> = ({
   return (
     <div className="space-y-8 max-w-4xl mx-auto pb-12">
       
-      {/* Header */}
-      <div className="space-y-2">
-        <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-amber-50 text-amber-800 border border-amber-300 text-xs font-semibold uppercase tracking-wider">
-          <Key className="w-3.5 h-3.5 text-amber-600" />
-          <span>Gestión de Credenciales & Redes Sociales</span>
-        </div>
-        <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
-          Integraciones: TikTok Creator & API Keys de IA
+      {/* Clean Header */}
+      <div className="space-y-1.5">
+        <p className="text-xs font-semibold text-indigo-600">{t.integrations.eyebrow}</p>
+        <h1 className="font-display text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight">
+          {t.integrations.title}
         </h1>
-        <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
-          Conecta tu cuenta de TikTok para enviar y ejecutar guiones virales directamente a tu perfil, o ingresa tus claves de IA privadas para OpenAI, Google Gemini y Anthropic.
+        <p className="text-sm text-slate-600 leading-relaxed max-w-2xl">
+          {t.integrations.subtitle}
         </p>
       </div>
 
       {saveSuccessMsg && (
-        <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-300 text-emerald-800 text-xs font-semibold flex items-center space-x-2">
+        <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-medium flex items-center gap-2">
           <Check className="w-4 h-4 text-emerald-600" />
           <span>{saveSuccessMsg}</span>
         </div>
       )}
 
       {tiktokStatusMsg && (
-        <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-300 text-emerald-800 text-xs font-semibold flex items-center space-x-2">
+        <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-medium flex items-center gap-2">
           <CheckCircle2 className="w-4 h-4 text-emerald-600" />
           <span>{tiktokStatusMsg}</span>
         </div>
       )}
 
-      {/* FEATURED: TikTok Creator Integration Card */}
-      <div className="p-6 rounded-3xl bg-gradient-to-r from-slate-950 via-slate-900 to-indigo-950 text-white shadow-xl border border-slate-800 space-y-6">
+      {/* TikTok Creator Integration Card */}
+      <div className="p-6 rounded-2xl bg-slate-900 text-white border border-slate-800 space-y-6">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div className="flex items-center space-x-4">
-            <div className="w-14 h-14 rounded-2xl bg-slate-900 border border-slate-700 flex items-center justify-center shrink-0 shadow-inner">
-              <Video className="w-7 h-7 text-rose-500" />
+            <div className="w-12 h-12 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center shrink-0">
+              <Video className="w-6 h-6 text-rose-400" />
             </div>
             <div>
-              <div className="flex items-center space-x-2">
-                <h3 className="text-base font-extrabold text-white">TikTok Creator & Direct Execution</h3>
-                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-rose-500/20 text-rose-400 border border-rose-500/30 flex items-center space-x-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-rose-400 animate-pulse" />
-                  <span>{tiktokIntegration?.isActive ? 'Conectado a TikTok' : 'Listo para Conectar'}</span>
+              <div className="flex flex-wrap items-center gap-2">
+                <h3 className="font-display text-base font-bold text-white">
+                  TikTok Creator API
+                </h3>
+                <span className="text-xs text-slate-400">·</span>
+                <span className="text-xs font-medium text-emerald-400">
+                  {tiktokIntegration?.isActive ? t.integrations.connected : t.integrations.readyToConnect}
                 </span>
               </div>
               <p className="text-xs text-slate-300 mt-1">
-                Ejecuta guiones directamente a tu cuenta de TikTok con ganchos de retención, pie de video y hashtags.
+                {t.integrations.subtitle}
               </p>
             </div>
           </div>

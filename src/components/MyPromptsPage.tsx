@@ -5,6 +5,7 @@ import { PromptCard } from './PromptCard';
 import { downloadPromptsCatalogPdf } from '../utils/pdfExport';
 import { ExecutionQuotaChart } from './ExecutionQuotaChart';
 import { PromptAnalyticsDashboard } from './PromptAnalyticsDashboard';
+import { useLanguage } from '../i18n/LanguageContext';
 
 interface MyPromptsPageProps {
   prompts: Prompt[];
@@ -31,6 +32,7 @@ export const MyPromptsPage: React.FC<MyPromptsPageProps> = ({
   onSimulateExecution,
   onSwitchPromptVersion,
 }) => {
+  const { t } = useLanguage();
   const [expandAll, setExpandAll] = useState<boolean>(false);
   const [activeTabSection, setActiveTabSection] = useState<'all' | 'analytics' | 'chart' | 'prompts' | 'versions'>('all');
   const savedPrompts = prompts.filter((p) => savedPromptIds.includes(p.id));
@@ -40,122 +42,89 @@ export const MyPromptsPage: React.FC<MyPromptsPageProps> = ({
 
   return (
     <div className="max-w-6xl mx-auto space-y-8 pb-16">
-      
-      {/* Header Banner */}
-      <div className="p-6 sm:p-8 rounded-3xl bg-white border border-slate-200 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6 shadow-sm">
-        <div className="space-y-2">
-          <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-amber-50 text-amber-800 border border-amber-300 text-xs font-bold uppercase tracking-wider">
-            <Bookmark className="w-3.5 h-3.5 text-amber-600" />
-            <span>Panel Personal • {savedPrompts.length} Prompts • {totalSavedVersions} Versiones</span>
-          </div>
+      {/* Clean Header */}
+      <div className="p-6 sm:p-8 rounded-2xl bg-white border border-slate-200 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
+        <div className="space-y-1.5">
+          <p className="text-xs font-semibold text-indigo-600 tabular-nums">
+            {t.myPrompts.eyebrow} · {savedPrompts.length} {t.nav.prompts.toLowerCase()} · {totalSavedVersions} {t.myPrompts.tabVersions.toLowerCase()}
+          </p>
 
-          <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
-            Mis Prompts, Analytics & Versiones
+          <h1 className="font-display text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight">
+            {t.myPrompts.title}
           </h1>
 
           <p className="text-slate-600 text-xs sm:text-sm max-w-2xl">
-            Analiza la tasa de éxito y latencia de respuesta por versión con gráficos de líneas en Recharts, monitorea tu cuota mensual y gestiona tus iteraciones.
+            {t.myPrompts.subtitle}
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-3 shrink-0">
+        <div className="flex flex-wrap items-center gap-2.5 shrink-0">
           {savedPrompts.length > 0 && (
             <>
               <button
+                type="button"
                 onClick={() => setExpandAll(!expandAll)}
-                className="px-4 py-3 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs flex items-center space-x-1.5 transition-all border border-slate-200 cursor-pointer"
+                className="px-3.5 py-2 rounded-xl bg-white hover:bg-slate-50 text-slate-700 font-medium text-xs flex items-center gap-1.5 transition-colors border border-slate-200 cursor-pointer"
               >
-                {expandAll ? <EyeOff className="w-4 h-4 text-indigo-600" /> : <Eye className="w-4 h-4 text-indigo-600" />}
-                <span>{expandAll ? 'Ocultar Prompts' : 'Ver Todos'}</span>
+                {expandAll ? <EyeOff className="w-3.5 h-3.5 text-slate-500" /> : <Eye className="w-3.5 h-3.5 text-slate-500" />}
+                <span>{expandAll ? t.myPrompts.hideAll : t.myPrompts.showAll}</span>
               </button>
 
               <button
+                type="button"
                 onClick={() => downloadPromptsCatalogPdf(savedPrompts, 'Mis Prompts Guardados - Conexion Prompts')}
-                className="px-4 py-3 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-xs shadow-sm flex items-center space-x-2 transition-all cursor-pointer"
+                className="px-3.5 py-2 rounded-xl bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 font-medium text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
               >
-                <FileDown className="w-4 h-4 text-amber-300" />
-                <span>Bajar en PDF</span>
+                <FileDown className="w-3.5 h-3.5 text-slate-500" />
+                <span>{t.myPrompts.downloadPdf}</span>
               </button>
             </>
           )}
 
           <button
+            type="button"
             onClick={onNavigateToIdeaGenerator}
-            className="px-5 py-3 rounded-2xl bg-gradient-to-r from-amber-400 via-yellow-300 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-slate-950 font-black text-xs shadow-md shadow-amber-400/20 flex items-center space-x-2 shrink-0 transition-all border border-amber-400 cursor-pointer"
+            className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs flex items-center gap-1.5 shrink-0 transition-colors cursor-pointer"
           >
-            <Wand2 className="w-4 h-4 text-slate-950 fill-current" />
-            <span>+ Crear Prompt con IA</span>
+            <Wand2 className="w-3.5 h-3.5" />
+            <span>{t.myPrompts.createWithAi}</span>
           </button>
         </div>
       </div>
 
       {/* View Switcher Tabs Bar */}
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-2">
-        <div className="flex flex-wrap items-center gap-1.5 bg-slate-100 p-1 rounded-2xl border border-slate-200 text-xs font-bold">
-          <button
-            onClick={() => setActiveTabSection('all')}
-            className={`flex items-center space-x-1.5 px-3.5 py-2 rounded-xl transition-all cursor-pointer ${
-              activeTabSection === 'all'
-                ? 'bg-white text-indigo-700 shadow-xs'
-                : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            <LayoutGrid className="w-3.5 h-3.5" />
-            <span>Vista Completa</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTabSection('analytics')}
-            className={`flex items-center space-x-1.5 px-3.5 py-2 rounded-xl transition-all cursor-pointer ${
-              activeTabSection === 'analytics'
-                ? 'bg-white text-emerald-700 shadow-xs'
-                : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            <Activity className="w-3.5 h-3.5 text-emerald-600" />
-            <span>Prompt Analytics (Éxito & Latencia)</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTabSection('versions')}
-            className={`flex items-center space-x-1.5 px-3.5 py-2 rounded-xl transition-all cursor-pointer ${
-              activeTabSection === 'versions'
-                ? 'bg-white text-indigo-700 shadow-xs'
-                : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            <History className="w-3.5 h-3.5 text-indigo-600" />
-            <span>Control de Versiones ({totalSavedVersions})</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTabSection('chart')}
-            className={`flex items-center space-x-1.5 px-3.5 py-2 rounded-xl transition-all cursor-pointer ${
-              activeTabSection === 'chart'
-                ? 'bg-white text-indigo-700 shadow-xs'
-                : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            <BarChart3 className="w-3.5 h-3.5 text-amber-500" />
-            <span>Gráfico de Cuota</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTabSection('prompts')}
-            className={`flex items-center space-x-1.5 px-3.5 py-2 rounded-xl transition-all cursor-pointer ${
-              activeTabSection === 'prompts'
-                ? 'bg-white text-indigo-700 shadow-xs'
-                : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            <Bookmark className="w-3.5 h-3.5 text-indigo-600" />
-            <span>Guardados ({savedPrompts.length})</span>
-          </button>
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-3">
+        <div className="flex flex-wrap items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200 text-xs font-medium">
+          {(
+            [
+              ['all', t.myPrompts.tabAll, LayoutGrid],
+              ['analytics', t.myPrompts.tabAnalytics, Activity],
+              ['versions', `${t.myPrompts.tabVersions} (${totalSavedVersions})`, History],
+              ['chart', t.myPrompts.tabQuota, BarChart3],
+              ['prompts', `${t.myPrompts.tabSaved} (${savedPrompts.length})`, Bookmark],
+            ] as const
+          ).map(([id, label, Icon]) => (
+            <button
+              key={id}
+              type="button"
+              onClick={() => setActiveTabSection(id)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-colors cursor-pointer ${
+                activeTabSection === id
+                  ? 'bg-white text-slate-900 shadow-2xs font-semibold'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <Icon className="w-3.5 h-3.5" />
+              <span>{label}</span>
+            </button>
+          ))}
         </div>
 
-        <div className="hidden sm:flex items-center space-x-2 text-xs font-semibold text-slate-500">
-          <span>Uso de Cuota:</span>
-          <span className="font-bold text-slate-800">{subscription.usedPromptsThisMonth} / {subscription.monthlyPromptQuota} prompts</span>
+        <div className="hidden sm:flex items-center gap-1.5 text-xs text-slate-500 tabular-nums">
+          <span>{t.myPrompts.quotaUsage}</span>
+          <span className="font-mono font-semibold text-slate-900">
+            {subscription.usedPromptsThisMonth} / {subscription.monthlyPromptQuota}
+          </span>
         </div>
       </div>
 
@@ -276,26 +245,30 @@ export const MyPromptsPage: React.FC<MyPromptsPageProps> = ({
               ))}
             </div>
           ) : (
-            <div className="bg-white border border-slate-200 rounded-3xl p-12 text-center space-y-4 shadow-sm">
-              <Bookmark className="w-12 h-12 text-slate-300 mx-auto" />
-              <h3 className="text-lg font-bold text-slate-800">No tienes prompts guardados en tu lista</h3>
+            <div className="bg-white border border-slate-200 rounded-2xl p-12 text-center space-y-4">
+              <Bookmark className="w-10 h-10 text-slate-300 mx-auto" />
+              <h3 className="font-display text-lg font-bold text-slate-900">
+                {t.myPrompts.emptyTitle}
+              </h3>
               <p className="text-xs sm:text-sm text-slate-500 max-w-md mx-auto">
-                Guarda prompts desde la galería pública o crea tus propias plantillas personalizadas a partir de ideas usando Inteligencia Artificial.
+                {t.myPrompts.emptyBody}
               </p>
               <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
                 <button
+                  type="button"
                   onClick={onNavigateToIdeaGenerator}
-                  className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-amber-400 to-amber-500 text-slate-950 text-xs font-extrabold flex items-center space-x-2 shadow-sm border border-amber-400"
+                  className="px-4 py-2.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold flex items-center gap-2 transition-colors cursor-pointer"
                 >
-                  <Wand2 className="w-4 h-4 fill-current" />
-                  <span>Crear con IA desde una Idea</span>
+                  <Wand2 className="w-4 h-4" />
+                  <span>{t.myPrompts.createWithAi}</span>
                 </button>
                 <button
+                  type="button"
                   onClick={onNavigateToGallery}
-                  className="px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-semibold transition-colors flex items-center space-x-1 border border-slate-200"
+                  className="px-4 py-2.5 rounded-lg bg-white hover:bg-slate-50 text-slate-700 text-xs font-medium transition-colors flex items-center gap-1.5 border border-slate-200 cursor-pointer"
                 >
-                  <span>Explorar Galería</span>
-                  <ArrowRight className="w-4 h-4" />
+                  <span>{t.myPrompts.exploreGallery}</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
                 </button>
               </div>
             </div>

@@ -25,6 +25,7 @@ import {
 import { Prompt, PromptVersion, OptimizedPromptResponse, UserSubscription } from '../types';
 import { downloadOptimizedPromptAsPdf } from '../utils/pdfExport';
 import { getDefaultThumbnailForCategory } from '../data/mockDatabase';
+import { useLanguage } from '../i18n/LanguageContext';
 
 interface PromptOptimizerPageProps {
   onExecutePrompt: (prompt: Prompt) => void;
@@ -64,6 +65,7 @@ export const PromptOptimizerPage: React.FC<PromptOptimizerPageProps> = ({
   onUpgradeClick,
   onOpenUnlockModal,
 }) => {
+  const { t } = useLanguage();
   const [rawPrompt, setRawPrompt] = useState<string>('');
   const [targetGoal, setTargetGoal] = useState<string>('high-conversion');
   const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -220,200 +222,152 @@ export const PromptOptimizerPage: React.FC<PromptOptimizerPageProps> = ({
   };
 
   return (
-    <div className="space-y-8 pb-16">
-      
-      {/* Header Banner */}
-      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-indigo-50/80 via-white to-amber-50/60 border border-slate-200 p-8 sm:p-10 shadow-sm">
-        <div className="absolute top-0 right-0 -mt-10 -mr-10 w-80 h-80 bg-amber-400/10 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute bottom-0 left-0 -mb-10 -ml-10 w-80 h-80 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
-
-        <div className="relative z-10 max-w-3xl space-y-4">
-          <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-amber-50 text-amber-800 border border-amber-300 text-xs font-bold uppercase tracking-wider">
-            <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-            <span>Optimizador de Prompts • IA 2026</span>
-          </div>
-
-          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-slate-900 tracking-tight leading-tight">
-            Convierte cualquier idea simple en un <br />
-            <span className="bg-gradient-to-r from-indigo-600 via-sky-600 to-amber-600 bg-clip-text text-transparent">
-              Prompt Maestro Profesional
-            </span>
-          </h1>
-
-          <p className="text-slate-600 text-sm sm:text-base leading-relaxed">
-            La diferencia entre una respuesta mediocre de la IA y un resultado de $10,000 está en la estructura del prompt.
-            Nuestra IA analiza tu texto y le inyecta Rol de Élite, Variables dinámicas <code className="text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200 font-mono font-bold">{'{{variable}}'}</code>, Reglas Negativas y Formatos Estrictos.
-          </p>
-
-          <div className="flex flex-wrap items-center gap-4 text-xs text-slate-600 font-medium pt-2 border-t border-slate-200">
-            <div className="flex items-center space-x-1.5">
-              <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-              <span>Metodología R-C-O-F-C</span>
-            </div>
-            <div className="flex items-center space-x-1.5">
-              <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-              <span>Detección Automática de Variables</span>
-            </div>
-            <div className="flex items-center space-x-1.5">
-              <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-              <span>Optimizado para Gemini 3.7 & GPT-4o</span>
-            </div>
-          </div>
-        </div>
+    <div className="space-y-6 pb-16">
+      {/* Clean Header */}
+      <div className="rounded-2xl bg-white border border-slate-200 p-6 sm:p-8 space-y-2">
+        <p className="text-xs font-semibold text-indigo-600">{t.optimizer.eyebrow}</p>
+        <h1 className="font-display text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight">
+          {t.optimizer.title}
+        </h1>
+        <p className="text-slate-600 text-sm sm:text-base max-w-2xl leading-relaxed">
+          {t.optimizer.subtitle}
+        </p>
       </div>
 
       {/* Preset Quick Starters */}
       <div className="space-y-3">
-        <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center space-x-2">
-          <Lightbulb className="w-4 h-4 text-amber-500" />
-          <span>Ejemplos Rápidos para Probar:</span>
-        </h3>
+        <h3 className="text-xs font-semibold text-slate-600">{t.optimizer.presetsLabel}</h3>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           {PRESET_EXAMPLES.map((preset, idx) => (
             <button
               key={idx}
+              type="button"
               onClick={() => {
                 setRawPrompt(preset.rawPrompt);
                 setTargetGoal(preset.goal);
                 handleOptimize(preset.rawPrompt, preset.goal);
               }}
-              className="text-left p-4 rounded-2xl bg-white hover:bg-slate-50 border border-slate-200 hover:border-indigo-300 transition-all group flex flex-col justify-between space-y-2 shadow-xs hover:shadow-md"
+              className="text-left p-4 rounded-xl bg-white hover:bg-slate-50 border border-slate-200 hover:border-slate-300 transition-colors group flex flex-col justify-between space-y-2 cursor-pointer"
             >
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-slate-900 group-hover:text-indigo-600 transition-colors">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-xs font-semibold text-slate-900 group-hover:text-indigo-600 transition-colors">
                   {preset.title}
                 </span>
-                <ArrowRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-indigo-600 group-hover:translate-x-0.5 transition-all" />
+                <ArrowRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-indigo-600 shrink-0" />
               </div>
-              <p className="text-[11px] text-slate-500 line-clamp-2">
-                "{preset.rawPrompt}"
-              </p>
+              <p className="text-xs text-slate-500 line-clamp-2">{preset.rawPrompt}</p>
             </button>
           ))}
         </div>
       </div>
 
-      {/* Locked Tool Notice for Free Users */}
+      {/* Calm Locked Notice for Free Users */}
       {!isProUser && (
-        <div className="bg-gradient-to-r from-amber-500 via-amber-400 to-amber-300 text-slate-950 rounded-2xl p-4 sm:p-5 shadow-sm border border-amber-300 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="flex items-center space-x-3.5">
-            <div className="p-3 rounded-2xl bg-slate-950 text-amber-300 shrink-0">
-              <Lock className="w-6 h-6" />
-            </div>
-            <div>
-              <span className="text-xs font-black uppercase tracking-wider block">
-                Optimizador IA Bloqueado (Requiere Suscripción)
-              </span>
-              <p className="text-xs font-semibold text-slate-900 mt-0.5">
-                Convierte prompts a estándar R-C-O-F-C, variables dinámicas y control de versiones. Desbloquea con PayPal (Cuenta Verificada por PayPal).
-              </p>
+        <div className="bg-slate-900 text-white rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-start sm:items-center gap-3">
+            <Lock className="w-4 h-4 text-slate-400 shrink-0 mt-0.5 sm:mt-0" />
+            <div className="text-xs sm:text-sm">
+              <span className="font-semibold">{t.creator.lockedTitle}.</span>{' '}
+              <span className="text-slate-300">{t.creator.lockedBody}</span>
             </div>
           </div>
           <button
-            onClick={onUpgradeClick}
-            className="px-5 py-2.5 rounded-xl bg-slate-950 hover:bg-slate-900 text-amber-300 font-black text-xs flex items-center space-x-2 shrink-0 shadow-sm cursor-pointer transition-transform hover:scale-105"
+            type="button"
+            onClick={onOpenUnlockModal || onUpgradeClick}
+            className="px-4 py-2 rounded-lg bg-white hover:bg-slate-100 text-slate-900 font-semibold text-xs whitespace-nowrap shrink-0 cursor-pointer transition-colors"
           >
-            <Unlock className="w-4 h-4 text-amber-300" />
-            <span>Planes y Suscribirte</span>
+            {t.optimizer.unlockBtn}
           </button>
         </div>
       )}
 
       {/* Main Input & Control Panel */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-        
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Left Column: Input Form */}
-        <div className="lg:col-span-6 space-y-5 bg-white border border-slate-200 rounded-3xl p-6 sm:p-7 shadow-xs">
+        <div className="lg:col-span-6 space-y-5 bg-white border border-slate-200 rounded-2xl p-6">
           <div className="flex items-center justify-between">
-            <h2 className="text-base font-bold text-slate-900 flex items-center space-x-2">
-              <Sliders className="w-4 h-4 text-amber-500" />
-              <span>Ingresa tu Prompt o Idea en Bruto</span>
+            <h2 className="font-display text-base font-bold text-slate-900 flex items-center gap-2">
+              <Sliders className="w-4 h-4 text-indigo-600" />
+              <span>{t.optimizer.inputLabel}</span>
             </h2>
-            <span className="text-[11px] text-slate-500">
-              {rawPrompt.length} caracteres
+            <span className="text-[11px] text-slate-400 tabular-nums">
+              {rawPrompt.length}
             </span>
           </div>
 
           <div className="space-y-2">
-            <label className="block text-xs font-semibold text-slate-700">
-              ¿Qué quieres que la IA haga? (Escríbelo como te salga):
-            </label>
             <textarea
               rows={6}
               value={rawPrompt}
               onChange={(e) => setRawPrompt(e.target.value)}
-              placeholder="Ej: Necesito un correo para convencer a empresas de comprar mi software de RRHH, que hable de ahorro de tiempo y tenga un llamado a una demo de 15 minutos..."
-              className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-sm text-slate-900 placeholder-slate-400 focus:bg-white focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition-all resize-y"
+              placeholder={t.optimizer.inputPlaceholder}
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl p-4 text-sm text-slate-900 placeholder-slate-400 focus:bg-white focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/15 transition-colors resize-y"
             />
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <label className="block text-xs font-semibold text-slate-700">
-                Objetivo Prioritario:
-              </label>
               <select
                 value={targetGoal}
                 onChange={(e) => setTargetGoal(e.target.value)}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 font-medium focus:bg-white focus:outline-none focus:border-indigo-500"
+                className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3.5 py-2.5 text-xs text-slate-800 font-medium focus:bg-white focus:outline-none focus:border-indigo-500"
               >
-                <option value="high-conversion">Alta Conversión & Cierre de Venta</option>
-                <option value="agent-system">System Prompt para Agente Autónomo</option>
-                <option value="viral-script">Guión Viral de Video (TikTok/Reels)</option>
-                <option value="clean-code">Arquitectura de Código & Refactor</option>
-                <option value="seo-strategy">Estrategia SEO & Contenido B2B</option>
-                <option value="executive-brief">Resumen Ejecutivo & Toma de Decisión</option>
+                <option value="high-conversion">High Conversion & Sales</option>
+                <option value="agent-system">Autonomous Agent System Prompt</option>
+                <option value="viral-script">Short Video Script (TikTok/Reels)</option>
+                <option value="clean-code">Code Architecture & Refactor</option>
+                <option value="seo-strategy">SEO & B2B Content Strategy</option>
+                <option value="executive-brief">Executive Summary & Decision Brief</option>
               </select>
             </div>
 
             <div className="space-y-1.5">
-              <label className="block text-xs font-semibold text-slate-700">
-                Motor de Optimización:
-              </label>
-              <div className="px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-amber-700 font-bold flex items-center space-x-2">
-                <Cpu className="w-3.5 h-3.5 text-amber-500" />
-                <span>Google Gemini 3.8 Flash (Auto-recuperación activa)</span>
+              <div className="px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-700 font-medium flex items-center gap-2">
+                <Cpu className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+                <span className="truncate">Gemini Flash Engine</span>
               </div>
             </div>
           </div>
 
           {errorMsg && (
-            <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-300 text-xs text-amber-900 font-semibold flex items-center justify-between gap-3">
+            <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-900 font-medium flex items-center justify-between gap-3">
               <span>{errorMsg}</span>
               <button
+                type="button"
                 onClick={() => handleOptimize()}
                 disabled={isLoading}
-                className="px-3 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-bold shrink-0 shadow-xs"
+                className="px-3 py-1 bg-slate-900 hover:bg-slate-800 text-white rounded-lg font-semibold shrink-0 cursor-pointer"
               >
-                Reintentar
+                Retry
               </button>
             </div>
           )}
 
           <button
+            type="button"
             onClick={() => handleOptimize()}
             disabled={isLoading || (isProUser && !rawPrompt.trim())}
-            className={`w-full py-4 px-6 rounded-2xl font-extrabold text-sm shadow-md flex items-center justify-center space-x-2.5 transition-all transform hover:-translate-y-0.5 cursor-pointer ${
+            className={`w-full py-3.5 px-6 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
               !isProUser
-                ? 'bg-gradient-to-r from-amber-500 via-amber-400 to-amber-500 hover:from-amber-400 hover:to-amber-500 text-slate-950 border border-amber-400 shadow-amber-400/20'
-                : 'bg-gradient-to-r from-amber-400 via-amber-300 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-slate-950 border border-amber-400 shadow-amber-400/20 disabled:opacity-50 disabled:cursor-not-allowed'
+                ? 'bg-slate-900 hover:bg-slate-800 text-white'
+                : 'bg-indigo-600 hover:bg-indigo-700 text-white'
             }`}
           >
             {isLoading ? (
               <>
-                <RefreshCw className="w-4 h-4 animate-spin text-slate-950" />
-                <span>Aplicando Ingeniería de Prompts con IA...</span>
+                <RefreshCw className="w-4 h-4 animate-spin" />
+                <span>{t.optimizer.optimizingBtn}</span>
               </>
             ) : !isProUser ? (
               <>
-                <Lock className="w-4 h-4 text-slate-950" />
-                <span>🔒 Desbloquear Optimizador (Requiere Suscripción o Compra)</span>
+                <Lock className="w-4 h-4" />
+                <span>{t.optimizer.unlockBtn}</span>
               </>
             ) : (
               <>
-                <Sparkles className="w-4 h-4 text-slate-950 fill-current" />
-                <span>✨ Optimizar Prompt al 100% de Calidad</span>
+                <Sparkles className="w-4 h-4" />
+                <span>{t.optimizer.optimizeBtn}</span>
               </>
             )}
           </button>

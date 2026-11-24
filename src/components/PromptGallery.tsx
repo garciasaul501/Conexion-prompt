@@ -1,18 +1,13 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import {
   Search,
-  Sparkles,
   Bookmark,
-  CheckCircle2,
   SlidersHorizontal,
-  Flame,
   Wand2,
-  Zap,
   FileDown,
   Eye,
   EyeOff,
   Lock,
-  Unlock,
   X,
 } from 'lucide-react';
 import { PromptCategory, Prompt, UserSubscription } from '../types';
@@ -20,6 +15,7 @@ import { PromptCard } from './PromptCard';
 import { PromptIdeaModal } from './PromptIdeaModal';
 import { ControlPanel } from './ControlPanel';
 import { downloadPromptsCatalogPdf } from '../utils/pdfExport';
+import { useLanguage } from '../i18n/LanguageContext';
 
 interface PromptGalleryProps {
   categories: PromptCategory[];
@@ -48,6 +44,7 @@ export const PromptGallery: React.FC<PromptGalleryProps> = ({
   onSwitchPromptVersion,
   onNavigateToAnalytics,
 }) => {
+  const { t, translateCategory } = useLanguage();
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>('cat-all');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [searchScope, setSearchScope] = useState<'all' | 'title' | 'description'>('all');
@@ -55,6 +52,7 @@ export const PromptGallery: React.FC<PromptGalleryProps> = ({
   const [modelFilter, setModelFilter] = useState<string>('all');
   const [onlySaved, setOnlySaved] = useState<boolean>(false);
   const [sortBy, setSortBy] = useState<'uses' | 'rating' | 'newest'>('uses');
+  const [showFiltersDrawer, setShowFiltersDrawer] = useState<boolean>(false);
   const [isIdeaModalOpen, setIsIdeaModalOpen] = useState<boolean>(false);
   const [expandAllPrompts, setExpandAllPrompts] = useState<boolean>(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -70,8 +68,17 @@ export const PromptGallery: React.FC<PromptGalleryProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  const isProUser = subscription.planType === 'pro' || subscription.planType === 'enterprise';
-  const remainingCredits = Math.max(0, subscription.monthlyPromptQuota - subscription.usedPromptsThisMonth);
+  const isProUser = subscription.planType !== 'free';
+  const remainingCredits = Math.max(
+    0,
+    subscription.monthlyPromptQuota - subscription.usedPromptsThisMonth
+  );
+
+  const activeFilterCount =
+    (pricingFilter !== 'all' ? 1 : 0) +
+    (modelFilter !== 'all' ? 1 : 0) +
+    (searchScope !== 'all' ? 1 : 0) +
+    (onlySaved ? 1 : 0);
 
   const handleCardExecute = (prompt: Prompt) => {
     if (prompt.isPremium && !isProUser) {
@@ -85,6 +92,15 @@ export const PromptGallery: React.FC<PromptGalleryProps> = ({
     onExecutePrompt(prompt);
   };
 
+  const resetAllFilters = () => {
+    setSelectedCategoryId('cat-all');
+    setSearchQuery('');
+    setSearchScope('all');
+    setPricingFilter('all');
+    setModelFilter('all');
+    setOnlySaved(false);
+  };
+
   const filteredPrompts = useMemo(() => {
     return prompts
       .filter((p) => {
@@ -95,7 +111,7 @@ export const PromptGallery: React.FC<PromptGalleryProps> = ({
           const q = searchQuery.trim().toLowerCase();
           const matchTitle = p.title.toLowerCase().includes(q);
           const matchDesc = p.description.toLowerCase().includes(q);
-          const matchTags = p.tags.some((t) => t.toLowerCase().includes(q));
+          const matchTags = p.tags.some((tag) => tag.toLowerCase().includes(q));
 
           if (searchScope === 'title') {
             if (!matchTitle) return false;
@@ -117,358 +133,311 @@ export const PromptGallery: React.FC<PromptGalleryProps> = ({
         if (sortBy === 'rating') return b.rating - a.rating;
         return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
       });
-  }, [prompts, selectedCategoryId, searchQuery, searchScope, pricingFilter, modelFilter, onlySaved, sortBy, savedPromptIds]);
-
-  const quickSearchTerms = ['Ventas', 'Agentes IA', 'TikTok', 'SEO', 'Copywriting', 'WhatsApp', 'Código'];
+  }, [
+    prompts,
+    selectedCategoryId,
+    searchQuery,
+    searchScope,
+    pricingFilter,
+    modelFilter,
+    onlySaved,
+    sortBy,
+    savedPromptIds,
+  ]);
 
   return (
-    <div className="space-y-8 pb-12">
-      
-      {/* Hero Banner / Header */}
-      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-indigo-50/80 via-white to-amber-50/60 border border-slate-200 p-8 sm:p-10 shadow-sm">
-        <div className="absolute top-0 right-0 -mt-12 -mr-12 w-96 h-96 bg-amber-400/10 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute bottom-0 left-0 -mb-12 -ml-12 w-80 h-80 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
+    <div className="space-y-8 pb-16">
+      {/* Clean Workspace Header */}
+      <section className="bg-white border border-slate-200 rounded-2xl p-6 sm:p-8 lg:p-10">
+        <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6">
+          <div className="max-w-2xl space-y-3">
+            <h1 className="font-display text-3xl sm:text-4xl font-bold text-slate-900 tracking-tight leading-tight">
+              {t.gallery.heroTitle}{' '}
+              <span className="text-indigo-600">{t.gallery.heroHighlight}</span>
+            </h1>
 
-        <div className="relative z-10 max-w-3xl space-y-4">
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-amber-50 text-amber-800 border border-amber-300 text-xs font-bold uppercase tracking-wider">
-              <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-              <span>Biblioteca & Generador de Prompts con IA</span>
+            <p className="text-sm sm:text-base text-slate-600 leading-relaxed">
+              {t.gallery.heroSubtitle}
+            </p>
+
+            {/* Unboxed Metadata Row */}
+            <div className="pt-1 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs text-slate-500 tabular-nums">
+              <span className="font-medium text-slate-700">
+                {prompts.length} {t.gallery.promptsAvailable}
+              </span>
+              <span aria-hidden="true" className="text-slate-300">·</span>
+              <span className={isProUser ? 'text-emerald-700 font-medium' : 'text-slate-700 font-medium'}>
+                {isProUser
+                  ? t.gallery.proActive
+                  : `${remainingCredits} / ${subscription.monthlyPromptQuota} ${t.gallery.creditsAvailable}`}
+              </span>
+              <span aria-hidden="true" className="text-slate-300">·</span>
+              <span>{t.gallery.modelsSupport}</span>
             </div>
-
-            <div className="inline-flex items-center space-x-1.5 px-3 py-1 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200 text-xs font-bold">
-              <Zap className="w-3.5 h-3.5 text-amber-500" />
-              <span>{isProUser ? 'Suscripción PRO Activa' : `Empieza Gratis: ${remainingCredits} de ${subscription.monthlyPromptQuota} créditos disponibles`}</span>
-            </div>
-
-            {!isProUser && (
-              <button
-                onClick={onUpgradeClick}
-                className="inline-flex items-center space-x-1 px-3 py-1 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-300 text-xs font-bold hover:bg-emerald-100 transition-colors cursor-pointer"
-                title="Ver descuento exclusivo con Whop @saulmente"
-              >
-                <span>🎁 40% OFF con Whop @saulmente en PayPal</span>
-              </button>
-            )}
           </div>
 
-          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-slate-900 tracking-tight leading-tight">
-            Encuentra, visualiza y descarga <br className="hidden sm:inline" />
-            <span className="bg-gradient-to-r from-indigo-600 via-sky-600 to-amber-600 bg-clip-text text-transparent">
-              Prompts Avanzados en PDF
-            </span>
-          </h1>
-
-          <p className="text-slate-600 text-sm sm:text-base leading-relaxed">
-            Explora todas las plantillas de prompts completas, pruébalas en vivo con Inteligencia Artificial o descárgalas directamente en formato PDF listas para tus clientes y proyectos.
-          </p>
-
-          {/* MAIN CTA BUTTONS */}
-          <div className="pt-2 flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-3">
+          {/* One Clear Primary CTA + One Quiet Secondary Action */}
+          <div className="flex flex-wrap items-center gap-3 shrink-0">
             <button
+              type="button"
               onClick={() => setIsIdeaModalOpen(true)}
-              className="py-3.5 px-6 rounded-2xl bg-gradient-to-r from-amber-400 via-amber-300 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-slate-950 font-extrabold text-sm shadow-md shadow-amber-400/20 flex items-center justify-center space-x-2.5 transition-all transform hover:-translate-y-0.5 border border-amber-400"
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold transition-colors whitespace-nowrap shrink-0 cursor-pointer"
             >
-              <Wand2 className="w-5 h-5 text-slate-950 fill-current" />
-              <span>✨ Crear Prompt desde una Idea con IA</span>
+              <Wand2 className="w-4 h-4" />
+              <span>{t.gallery.createFromIdea}</span>
             </button>
 
             <button
-              onClick={() => downloadPromptsCatalogPdf(filteredPrompts, 'Catalogo Completo de Prompts IA')}
-              className="py-3.5 px-5 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-sm shadow-md shadow-indigo-500/20 flex items-center justify-center space-x-2 transition-all transform hover:-translate-y-0.5"
+              type="button"
+              onClick={() =>
+                downloadPromptsCatalogPdf(filteredPrompts, 'Catalogo Completo de Prompts IA')
+              }
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 text-sm font-medium transition-colors whitespace-nowrap shrink-0 cursor-pointer"
             >
-              <FileDown className="w-5 h-5 text-amber-300" />
-              <span>Bajar Todos los Prompts en PDF ({filteredPrompts.length})</span>
+              <FileDown className="w-4 h-4 text-slate-500" />
+              <span>
+                {t.gallery.exportPdf} ({filteredPrompts.length})
+              </span>
             </button>
-
-            <button
-              onClick={() => setExpandAllPrompts(!expandAllPrompts)}
-              className="py-3.5 px-4 rounded-2xl bg-white hover:bg-slate-50 text-slate-800 font-bold text-xs border border-slate-300 shadow-xs flex items-center justify-center space-x-2 transition-all"
-            >
-              {expandAllPrompts ? (
-                <>
-                  <EyeOff className="w-4 h-4 text-indigo-600" />
-                  <span>Contraer Prompts</span>
-                </>
-              ) : (
-                <>
-                  <Eye className="w-4 h-4 text-indigo-600" />
-                  <span>Ver Todos los Prompts Abiertos</span>
-                </>
-              )}
-            </button>
-          </div>
-
-          {/* Quick Stats */}
-          <div className="pt-2 flex flex-wrap items-center gap-6 text-xs text-slate-600 font-medium border-t border-slate-200">
-            <div className="flex items-center space-x-2">
-              <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-              <span>{prompts.length}+ Prompts Desbloqueados para Ver y Bajar en PDF</span>
-            </div>
-            <div className="flex items-center space-x-2">
-              <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-              <span>Soporte Gemini 3.7 Flash, GPT-4o y Claude</span>
-            </div>
-            <div className="flex items-center space-x-2">
-              <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-              <span>Exportación Directa a PDF Profesional</span>
-            </div>
           </div>
         </div>
-      </div>
+      </section>
 
-      {/* Panel de Control & Resumen de Productividad (Prompts Más Ejecutados y Ahorro Estimado) */}
-      <ControlPanel
-        prompts={prompts}
-        categories={categories}
-        subscription={subscription}
-        onExecutePrompt={handleCardExecute}
-        onUpgradeClick={onUpgradeClick}
-        onNavigateToAnalytics={onNavigateToAnalytics}
-      />
-
-      {/* Real-Time Search & Filter Controls */}
-      <div className="bg-white border border-slate-200 rounded-3xl p-5 sm:p-6 shadow-xs space-y-4">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-          
-          {/* Real-Time Search Input Bar */}
+      {/* Streamlined Search & Categories Bar */}
+      <section className="space-y-4">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+          {/* Clean Search Input */}
           <div className="relative flex-1">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-indigo-500 pointer-events-none" />
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
             <input
               ref={searchInputRef}
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder={
-                searchScope === 'title'
-                  ? 'Buscar en tiempo real por título del prompt...'
-                  : searchScope === 'description'
-                  ? 'Buscar en tiempo real por descripción del prompt...'
-                  : 'Buscar prompts en tiempo real por título, descripción o etiqueta (⌘K)...'
-              }
-              aria-label="Buscar prompts por título o descripción"
-              className="w-full pl-12 pr-36 py-3.5 bg-slate-50 focus:bg-white border-2 border-slate-200 rounded-2xl text-slate-900 placeholder-slate-400 focus:outline-none focus:border-indigo-600 focus:ring-4 focus:ring-indigo-500/10 text-sm font-medium transition-all"
+              placeholder={t.gallery.searchPlaceholder}
+              aria-label={t.gallery.searchPlaceholder}
+              className="w-full pl-10 pr-24 py-2.5 bg-white border border-slate-200 rounded-xl text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/15 transition-all"
             />
 
-            <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center space-x-1.5">
+            <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-2">
               {searchQuery && (
                 <button
+                  type="button"
                   onClick={() => {
                     setSearchQuery('');
                     searchInputRef.current?.focus();
                   }}
-                  className="p-1.5 rounded-lg bg-slate-200/80 hover:bg-slate-300 text-slate-700 transition-colors cursor-pointer"
-                  title="Limpiar búsqueda"
+                  className="p-1 rounded-md text-slate-400 hover:text-slate-700 hover:bg-slate-100 cursor-pointer"
+                  title={t.gallery.searchClear}
                 >
                   <X className="w-3.5 h-3.5" />
                 </button>
               )}
-              <span className="px-2.5 py-1 rounded-lg bg-indigo-50 text-indigo-700 border border-indigo-200 text-[11px] font-extrabold">
-                {filteredPrompts.length} / {prompts.length}
+              <span className="text-xs text-slate-400 font-mono tabular-nums">
+                {filteredPrompts.length}/{prompts.length}
               </span>
             </div>
           </div>
 
-          {/* Search Scope Selector (All / Title / Description) */}
-          <div className="flex items-center bg-slate-100 border border-slate-200 p-1 rounded-xl text-xs font-bold shrink-0">
-            <button
-              onClick={() => setSearchScope('all')}
-              className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
-                searchScope === 'all'
-                  ? 'bg-white text-indigo-700 shadow-xs font-extrabold'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              Título & Descripción
-            </button>
-            <button
-              onClick={() => setSearchScope('title')}
-              className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
-                searchScope === 'title'
-                  ? 'bg-white text-indigo-700 shadow-xs font-extrabold'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              Solo Título
-            </button>
-            <button
-              onClick={() => setSearchScope('description')}
-              className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
-                searchScope === 'description'
-                  ? 'bg-white text-indigo-700 shadow-xs font-extrabold'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              Solo Descripción
-            </button>
-          </div>
-        </div>
-
-        {/* Quick Search Chips & Secondary Controls Row */}
-        <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-3 pt-2 border-t border-slate-100">
-          <div className="flex items-center flex-wrap gap-1.5">
-            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mr-1">
-              Búsqueda rápida:
-            </span>
-            {quickSearchTerms.map((term) => {
-              const isSelected = searchQuery.toLowerCase() === term.toLowerCase();
-              return (
-                <button
-                  key={term}
-                  onClick={() => setSearchQuery(isSelected ? '' : term)}
-                  className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
-                    isSelected
-                      ? 'bg-indigo-600 text-white shadow-xs'
-                      : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
-                  }`}
-                >
-                  {term}
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Secondary Controls */}
-          <div className="flex flex-wrap items-center gap-2">
-
-            {/* Toggle View All Prompts */}
-            <button
-              onClick={() => setExpandAllPrompts(!expandAllPrompts)}
-              className={`flex items-center space-x-1.5 px-3.5 py-2 rounded-xl text-xs font-bold border transition-all shadow-xs ${
-                expandAllPrompts
-                  ? 'bg-indigo-600 text-white border-indigo-600'
-                  : 'bg-white hover:bg-slate-50 text-indigo-700 border-indigo-200'
-              }`}
-            >
-              {expandAllPrompts ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-              <span>{expandAllPrompts ? 'Ocultar Textos' : 'Ver Prompts'}</span>
-            </button>
-
-            {/* Download Filtered PDF */}
-            <button
-              onClick={() => downloadPromptsCatalogPdf(filteredPrompts, 'Catalogo de Prompts IA')}
-              className="flex items-center space-x-1.5 px-3.5 py-2 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 text-xs font-bold transition-all shadow-xs"
-            >
-              <FileDown className="w-3.5 h-3.5 text-amber-600" />
-              <span>Bajar en PDF</span>
-            </button>
-            
-            {/* Filter Pro / Gratis */}
-            <div className="flex items-center bg-white border border-slate-200 p-1 rounded-xl text-xs font-semibold shadow-xs">
-              <button
-                onClick={() => setPricingFilter('all')}
-                className={`px-3 py-1.5 rounded-lg transition-colors ${
-                  pricingFilter === 'all' ? 'bg-indigo-600 text-white font-bold' : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                Todos
-              </button>
-              <button
-                onClick={() => setPricingFilter('free')}
-                className={`px-3 py-1.5 rounded-lg transition-colors ${
-                  pricingFilter === 'free' ? 'bg-indigo-600 text-white font-bold' : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                Gratis
-              </button>
-              <button
-                onClick={() => setPricingFilter('pro')}
-                className={`px-3 py-1.5 rounded-lg transition-colors ${
-                  pricingFilter === 'pro' ? 'bg-amber-50 text-amber-800 border border-amber-300 font-bold' : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                PRO
-              </button>
-            </div>
-
-            {/* Model Selector */}
-            <select
-              value={modelFilter}
-              onChange={(e) => setModelFilter(e.target.value)}
-              className="bg-white border border-slate-200 text-slate-800 text-xs font-semibold px-3 py-2 rounded-xl focus:outline-none focus:border-indigo-500 shadow-xs"
-            >
-              <option value="all">Todos los Modelos IA</option>
-              <option value="gemini-3.7-flash">Google Gemini 3.7 Flash</option>
-              <option value="gpt-4o">OpenAI GPT-4o</option>
-              <option value="claude-3-5-sonnet">Claude 3.5 Sonnet</option>
-            </select>
-
-            {/* Sort Menu */}
+          {/* Compact Filter & Sort Controls */}
+          <div className="flex items-center gap-2 shrink-0">
             <select
               value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as any)}
-              className="bg-white border border-slate-200 text-slate-800 text-xs font-semibold px-3 py-2 rounded-xl focus:outline-none focus:border-indigo-500 shadow-xs"
+              onChange={(e) => setSortBy(e.target.value as 'uses' | 'rating' | 'newest')}
+              aria-label="Sort prompts"
+              className="bg-white border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-medium text-slate-700 focus:outline-none focus:border-indigo-500 cursor-pointer"
             >
-              <option value="uses">Más Utilizados</option>
-              <option value="rating">Mejor Valorados</option>
-              <option value="newest">Más Recientes</option>
+              <option value="uses">{t.gallery.sortUses}</option>
+              <option value="rating">{t.gallery.sortRating}</option>
+              <option value="newest">{t.gallery.sortNewest}</option>
             </select>
 
-            {/* Only Saved Toggle */}
             <button
-              onClick={() => setOnlySaved(!onlySaved)}
-              className={`flex items-center space-x-1.5 px-3 py-2 rounded-xl text-xs font-semibold border transition-colors shadow-xs ${
-                onlySaved
-                  ? 'bg-amber-50 text-amber-700 border-amber-300'
-                  : 'bg-white text-slate-600 border-slate-200 hover:text-slate-900'
+              type="button"
+              onClick={() => setShowFiltersDrawer((prev) => !prev)}
+              className={`inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl text-xs font-medium border transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
+                showFiltersDrawer || activeFilterCount > 0
+                  ? 'bg-slate-900 text-white border-slate-900'
+                  : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200'
               }`}
             >
-              <Bookmark className={`w-3.5 h-3.5 ${onlySaved ? 'fill-amber-500 text-amber-500' : ''}`} />
-              <span>Favoritos ({savedPromptIds.length})</span>
+              <SlidersHorizontal className="w-3.5 h-3.5" />
+              <span>{showFiltersDrawer ? t.gallery.hideFilters : t.gallery.filters}</span>
+              {activeFilterCount > 0 && (
+                <span className="ml-0.5 text-[11px] font-mono tabular-nums opacity-80">
+                  ({activeFilterCount})
+                </span>
+              )}
             </button>
           </div>
         </div>
 
-        {/* Category Pills */}
-        <div className="flex items-center space-x-2 overflow-x-auto pb-2 scrollbar-none">
-          {categories.map((cat) => (
-            <button
-              key={cat.id}
-              onClick={() => setSelectedCategoryId(cat.id)}
-              className={`flex items-center space-x-2 px-4 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all shadow-xs ${
-                selectedCategoryId === cat.id
-                  ? 'bg-indigo-600 text-white font-bold shadow-sm'
-                  : 'bg-white text-slate-700 hover:text-slate-900 border border-slate-200 hover:border-slate-300'
-              }`}
-            >
-              <span>{cat.name}</span>
-              <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
-                selectedCategoryId === cat.id ? 'bg-indigo-700 text-amber-300' : 'bg-slate-100 text-slate-600'
-              }`}>
-                {cat.id === 'cat-all' ? prompts.length : prompts.filter((p) => p.categoryId === cat.id).length}
-              </span>
-            </button>
-          ))}
-        </div>
-      </div>
+        {/* Clean Horizontal Category Tabs */}
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+          {categories.map((cat) => {
+            const isSelected = selectedCategoryId === cat.id;
+            const count =
+              cat.id === 'cat-all'
+                ? prompts.length
+                : prompts.filter((p) => p.categoryId === cat.id).length;
 
-      {/* Locked Tool Callout for Free Users */}
+            return (
+              <button
+                key={cat.id}
+                type="button"
+                onClick={() => setSelectedCategoryId(cat.id)}
+                className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap shrink-0 transition-colors cursor-pointer ${
+                  isSelected
+                    ? 'bg-slate-900 text-white font-semibold'
+                    : 'bg-white text-slate-600 hover:text-slate-900 border border-slate-200 hover:border-slate-300'
+                }`}
+              >
+                <span>{translateCategory(cat.id, cat.name)}</span>
+                <span
+                  className={`text-[11px] font-mono tabular-nums ${
+                    isSelected ? 'text-slate-300' : 'text-slate-400'
+                  }`}
+                >
+                  {count}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Collapsible Secondary Filters Bar (keeps default screen clean!) */}
+        {showFiltersDrawer && (
+          <div className="bg-white border border-slate-200 rounded-xl p-4 flex flex-wrap items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center gap-2.5">
+              {/* Pricing Segmented Filter */}
+              <div className="inline-flex items-center bg-slate-100 p-0.5 rounded-lg text-xs">
+                {(
+                  [
+                    ['all', t.gallery.filterAll],
+                    ['free', t.gallery.filterFree],
+                    ['pro', t.gallery.filterPro],
+                  ] as const
+                ).map(([value, label]) => (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => setPricingFilter(value)}
+                    className={`px-2.5 py-1 rounded-md font-medium transition-colors cursor-pointer ${
+                      pricingFilter === value
+                        ? 'bg-white text-slate-900 shadow-2xs'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Search Scope */}
+              <div className="inline-flex items-center bg-slate-100 p-0.5 rounded-lg text-xs">
+                {(
+                  [
+                    ['all', t.gallery.searchScopeAll],
+                    ['title', t.gallery.searchScopeTitle],
+                    ['description', t.gallery.searchScopeDesc],
+                  ] as const
+                ).map(([value, label]) => (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => setSearchScope(value)}
+                    className={`px-2.5 py-1 rounded-md font-medium transition-colors cursor-pointer ${
+                      searchScope === value
+                        ? 'bg-white text-slate-900 shadow-2xs'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Model Filter */}
+              <select
+                value={modelFilter}
+                onChange={(e) => setModelFilter(e.target.value)}
+                className="bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 focus:outline-none focus:border-indigo-500"
+              >
+                <option value="all">{t.gallery.allModels}</option>
+                <option value="gemini-3.8-flash">Gemini 3.8 Flash</option>
+                <option value="gemini-3.7-flash">Gemini 3.7 Flash</option>
+                <option value="gpt-4o">OpenAI GPT-4o</option>
+                <option value="claude-3-5-sonnet">Claude 3.5 Sonnet</option>
+              </select>
+
+              {/* Favorites Toggle */}
+              <button
+                type="button"
+                onClick={() => setOnlySaved((prev) => !prev)}
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors cursor-pointer ${
+                  onlySaved
+                    ? 'bg-indigo-50 text-indigo-700 border-indigo-200'
+                    : 'bg-white text-slate-600 border-slate-200 hover:text-slate-900'
+                }`}
+              >
+                <Bookmark className={`w-3.5 h-3.5 ${onlySaved ? 'fill-indigo-600' : ''}`} />
+                <span>
+                  {t.gallery.favorites} ({savedPromptIds.length})
+                </span>
+              </button>
+
+              {/* Expand All Templates Toggle */}
+              <button
+                type="button"
+                onClick={() => setExpandAllPrompts((prev) => !prev)}
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors cursor-pointer ${
+                  expandAllPrompts
+                    ? 'bg-indigo-50 text-indigo-700 border-indigo-200'
+                    : 'bg-white text-slate-600 border-slate-200 hover:text-slate-900'
+                }`}
+              >
+                {expandAllPrompts ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                <span>{expandAllPrompts ? t.gallery.collapseAll : t.gallery.expandAll}</span>
+              </button>
+            </div>
+
+            {activeFilterCount > 0 && (
+              <button
+                type="button"
+                onClick={resetAllFilters}
+                className="text-xs font-medium text-indigo-600 hover:text-indigo-800 cursor-pointer"
+              >
+                {t.gallery.resetFilters}
+              </button>
+            )}
+          </div>
+        )}
+      </section>
+
+      {/* Subtle Free-Tier Notice (calm slate, zero loud yellow clutter) */}
       {!isProUser && (
-        <div className="bg-gradient-to-r from-amber-500 via-amber-400 to-amber-300 text-slate-950 rounded-2xl p-4 shadow-sm border border-amber-300 flex flex-col sm:flex-row items-center justify-between gap-3">
-          <div className="flex items-center space-x-3">
-            <div className="p-2.5 rounded-xl bg-slate-950 text-amber-300 shrink-0">
-              <Lock className="w-5 h-5" />
-            </div>
-            <div>
-              <span className="text-xs font-black uppercase tracking-wider block">Herramienta Bloqueada en Modo Gratuito</span>
-              <span className="text-xs font-semibold text-slate-900">
-                Los prompts PRO y la ejecución avanzada con Gemini 3.8 Flash están bloqueados hasta tener la suscripción o comprar con PayPal (Cuenta Verificada por PayPal).
-              </span>
+        <div className="bg-slate-900 text-white rounded-2xl px-5 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-start sm:items-center gap-3">
+            <Lock className="w-4 h-4 text-slate-400 shrink-0 mt-0.5 sm:mt-0" />
+            <div className="text-xs sm:text-sm">
+              <span className="font-semibold text-white">{t.gallery.freeNoticeTitle}.</span>{' '}
+              <span className="text-slate-300">{t.gallery.freeNoticeBody}</span>
             </div>
           </div>
+
           <button
+            type="button"
             onClick={onOpenUnlockModal || onUpgradeClick}
-            className="px-4 py-2 rounded-xl bg-slate-950 hover:bg-slate-900 text-white font-black text-xs flex items-center space-x-1.5 shrink-0 shadow-sm cursor-pointer transition-transform hover:scale-105"
+            className="px-4 py-2 rounded-lg bg-white hover:bg-slate-100 text-slate-900 text-xs font-semibold transition-colors whitespace-nowrap shrink-0 cursor-pointer"
           >
-            <Unlock className="w-4 h-4 text-amber-300" />
-            <span>Desbloquear Herramienta</span>
+            {t.gallery.unlockBtn}
           </button>
         </div>
       )}
 
       {/* Prompts Grid */}
       {filteredPrompts.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredPrompts.map((prompt) => (
             <PromptCard
               key={prompt.id}
@@ -481,82 +450,74 @@ export const PromptGallery: React.FC<PromptGalleryProps> = ({
               onSwitchVersion={onSwitchPromptVersion}
             />
           ))}
-        </div>
+        </section>
       ) : (
-        <div className="bg-white border border-slate-200 rounded-3xl p-12 text-center space-y-4 shadow-sm">
-          <SlidersHorizontal className="w-12 h-12 text-slate-400 mx-auto mb-3" />
-          <h3 className="text-lg font-bold text-slate-800">No se encontraron prompts que coincidan</h3>
-          <p className="text-sm text-slate-500 max-w-md mx-auto">
-            ¿No encuentras el prompt que buscas? Puedes crear uno instantáneamente a partir de tu idea con la Inteligencia Artificial.
-          </p>
+        <section className="bg-white border border-slate-200 rounded-2xl p-12 text-center space-y-4">
+          <SlidersHorizontal className="w-10 h-10 text-slate-300 mx-auto" />
+          <h3 className="font-display text-lg font-semibold text-slate-900">
+            {t.gallery.emptyTitle}
+          </h3>
+          <p className="text-sm text-slate-500 max-w-md mx-auto">{t.gallery.emptyBody}</p>
           <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
             <button
+              type="button"
               onClick={() => setIsIdeaModalOpen(true)}
-              className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-amber-400 to-amber-500 text-slate-950 text-xs font-extrabold flex items-center space-x-2 shadow-sm"
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold transition-colors cursor-pointer"
             >
-              <Wand2 className="w-4 h-4 fill-current" />
-              <span>Crear Prompt de este Tema con IA</span>
+              <Wand2 className="w-4 h-4" />
+              <span>{t.gallery.emptyCreateBtn}</span>
             </button>
             <button
-              onClick={() => {
-                setSelectedCategoryId('cat-all');
-                setSearchQuery('');
-                setSearchScope('all');
-                setPricingFilter('all');
-                setModelFilter('all');
-                setOnlySaved(false);
-              }}
-              className="px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold transition-colors"
+              type="button"
+              onClick={resetAllFilters}
+              className="px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-medium transition-colors cursor-pointer"
             >
-              Restablecer Filtros
+              {t.gallery.resetFilters}
             </button>
           </div>
-        </div>
+        </section>
       )}
 
-      {/* Bottom Action Banner: View All Prompts + Download Full PDF + Whop Subscription */}
-      <div className="bg-gradient-to-r from-amber-50 via-indigo-50/60 to-white border border-amber-300 rounded-3xl p-6 sm:p-8 flex flex-col lg:flex-row items-center justify-between gap-6 shadow-sm">
-        <div className="flex items-center space-x-4">
-          <div className="w-12 h-12 rounded-2xl bg-amber-100 border border-amber-300 flex items-center justify-center shrink-0">
-            <Flame className="w-6 h-6 text-amber-600" />
-          </div>
-          <div>
-            <h4 className="text-base font-extrabold text-slate-900">
-              Visualiza Todos los Prompts y Descarga el Catálogo Completo en PDF
-            </h4>
-            <p className="text-xs text-slate-600 mt-1">
-              Descarga todas las plantillas listas para imprimir o compartir en PDF, o suscríbete con Conexión Whop para ejecuciones ilimitadas.
-            </p>
-          </div>
+      {/* Productivity Overview Panel (Clean, Organized, Collapsible Ranking + CSV Export) */}
+      <ControlPanel
+        prompts={prompts}
+        categories={categories}
+        subscription={subscription}
+        onExecutePrompt={handleCardExecute}
+        onUpgradeClick={onUpgradeClick}
+        onNavigateToAnalytics={onNavigateToAnalytics}
+      />
+
+      {/* Calm Closing Callout */}
+      <section className="bg-white border border-slate-200 rounded-2xl p-6 sm:p-8 flex flex-col md:flex-row md:items-center justify-between gap-6">
+        <div className="space-y-1 max-w-xl">
+          <h2 className="font-display text-base sm:text-lg font-semibold text-slate-900">
+            {t.gallery.bottomTitle}
+          </h2>
+          <p className="text-sm text-slate-600">{t.gallery.bottomBody}</p>
         </div>
 
-        <div className="flex flex-wrap items-center justify-center gap-3 shrink-0">
+        <div className="flex flex-wrap items-center gap-3 shrink-0">
           <button
-            onClick={() => setExpandAllPrompts(!expandAllPrompts)}
-            className="px-4 py-2.5 rounded-xl bg-white hover:bg-slate-50 text-indigo-700 border border-indigo-200 font-bold text-xs shadow-xs flex items-center space-x-1.5 transition-all"
+            type="button"
+            onClick={() =>
+              downloadPromptsCatalogPdf(prompts, 'Catalogo Oficial Completo de Prompts IA')
+            }
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white hover:bg-slate-50 text-slate-800 border border-slate-200 text-xs font-semibold transition-colors whitespace-nowrap shrink-0 cursor-pointer"
           >
-            {expandAllPrompts ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-            <span>{expandAllPrompts ? 'Ocultar Prompts' : 'Ver Todos los Prompts'}</span>
+            <FileDown className="w-4 h-4 text-slate-500" />
+            <span>{t.gallery.downloadCatalogBtn}</span>
           </button>
 
           <button
-            onClick={() => downloadPromptsCatalogPdf(prompts, 'Catalogo Oficial Completo de Prompts IA')}
-            className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-xs shadow-md shadow-indigo-500/20 flex items-center space-x-2 transition-all cursor-pointer"
+            type="button"
+            onClick={onUpgradeClick}
+            className="px-5 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold transition-colors whitespace-nowrap shrink-0 cursor-pointer"
           >
-            <FileDown className="w-4 h-4 text-amber-300" />
-            <span>Bajar Catálogo Completo en PDF</span>
+            {t.gallery.viewPlansBtn}
           </button>
-
-          <a
-            href="https://whop.com/woop-conexion/"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="shrink-0 px-5 py-2.5 rounded-xl bg-gradient-to-r from-amber-400 via-amber-300 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-slate-950 font-extrabold text-xs shadow-md shadow-amber-400/20 transition-all text-center border border-amber-400"
-          >
-            Suscribir con Conexión Whop
-          </a>
         </div>
-      </div>
+      </section>
 
       {/* Idea-to-Prompt AI Creator Modal */}
       <PromptIdeaModal
@@ -565,7 +526,6 @@ export const PromptGallery: React.FC<PromptGalleryProps> = ({
         onExecutePrompt={onExecutePrompt}
         onAddPromptToLibrary={onAddPromptToLibrary}
       />
-
     </div>
   );
 };
